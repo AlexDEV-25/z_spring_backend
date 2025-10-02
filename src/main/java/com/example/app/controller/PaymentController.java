@@ -106,9 +106,7 @@ public class PaymentController {
 		}
 	}
 
-	/**
-	 * Lấy thống kê payments
-	 */
+	// Lấy thống kê payments
 	@GetMapping("/statistics")
 	public ResponseEntity<PrincipalPortalInfo.PaymentStatistics> getPaymentStatistics(
 			@RequestParam(required = false) String semester) {
@@ -122,9 +120,7 @@ public class PaymentController {
 		}
 	}
 
-	/**
-	 * Xuất danh sách payments ra file CSV
-	 */
+	// Xuất danh sách payments ra file CSV
 	@GetMapping("/export")
 	public ResponseEntity<byte[]> exportPayments(@RequestParam(required = false) String semester) {
 		try {
