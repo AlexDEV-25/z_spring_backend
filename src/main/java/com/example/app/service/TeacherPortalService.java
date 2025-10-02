@@ -42,7 +42,6 @@ public class TeacherPortalService {
 	private final CourseRepository courseRepository;
 	private final StudentRepository studentRepository;
 	private final EnrollmentRepository enrollmentRepository;
-	private final EnrollmentService enrollmentService;
 	private final UserRepository userRepository;
 	private final ClassRepository classRepository;
 	private final SemesterRepository semesterRepository;
@@ -52,15 +51,13 @@ public class TeacherPortalService {
 
 	public TeacherPortalService(TeachingRepository teachingRepository, CourseRepository courseRepository,
 			StudentRepository studentRepository, EnrollmentRepository enrollmentRepository,
-			UserRepository userRepository, EnrollmentService enrollmentService, ClassRepository classRepository,
-			SemesterRepository semesterRepository, LecturerRepository lecturerRepository,
-			GradeCalculationService gradeCalculationService) {
+			UserRepository userRepository, ClassRepository classRepository, SemesterRepository semesterRepository,
+			LecturerRepository lecturerRepository, GradeCalculationService gradeCalculationService) {
 		this.teachingRepository = teachingRepository;
 		this.courseRepository = courseRepository;
 		this.studentRepository = studentRepository;
 		this.enrollmentRepository = enrollmentRepository;
 		this.userRepository = userRepository;
-		this.enrollmentService = enrollmentService;
 		this.classRepository = classRepository;
 		this.semesterRepository = semesterRepository;
 		this.lecturerRepository = lecturerRepository;
