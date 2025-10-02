@@ -1,6 +1,7 @@
 package com.example.app.service;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.app.dto.StudentPortalInfo;
+import com.example.app.enumvalue.Status;
 import com.example.app.model.ClassEntity;
 import com.example.app.model.Course;
 import com.example.app.model.Enrollment;
@@ -27,8 +29,8 @@ import com.example.app.repository.ClassRepository;
 import com.example.app.repository.CourseRepository;
 import com.example.app.repository.EnrollmentRepository;
 import com.example.app.repository.LecturerRepository;
-import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.PaymentRepository;
+import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
@@ -51,12 +53,13 @@ public class StudentPortalService {
 	private final SemesterRepository semesterRepository;
 	private final PaymentRepository paymentRepository;
 	private final BCryptPasswordEncoder passwordEncoder;
+	private final GradeCalculationService gradeCalculationService;
 
 	public StudentPortalService(StudentRepository studentRepository, UserRepository userRepository,
 			EnrollmentRepository enrollmentRepository, CourseRepository courseRepository,
 			TeachingRepository teachingRepository, LecturerRepository lecturerRepository,
-			ClassRepository classRepository, SemesterRepository semesterRepository,
-			PaymentRepository paymentRepository) {
+			ClassRepository classRepository, SemesterRepository semesterRepository, PaymentRepository paymentRepository,
+			GradeCalculationService gradeCalculationService) {
 		this.studentRepository = studentRepository;
 		this.userRepository = userRepository;
 		this.enrollmentRepository = enrollmentRepository;
@@ -67,6 +70,7 @@ public class StudentPortalService {
 		this.semesterRepository = semesterRepository;
 		this.paymentRepository = paymentRepository;
 		this.passwordEncoder = new BCryptPasswordEncoder();
+		this.gradeCalculationService = gradeCalculationService;
 	}
 
 	/**
@@ -185,6 +189,8 @@ public class StudentPortalService {
 					course.getCredit(), enrollment.getComponentScore1(), // Lấy điểm thành phần 1
 					enrollment.getComponentScore2(), // Lấy điểm thành phần 2
 					enrollment.getFinalExamScore(), // Lấy điểm thi cuối kỳ
+					enrollment.getTotalScore(), // Lấy điểm tổng kết
+					enrollment.getScoreCoefficient4(), // Lấy điểm hệ số 4
 					enrollment.getGrade(), targetSemesterString, // semester thực tế
 					enrollment.getGrade() != null ? "Đã hoàn thành" : "Đang học");
 		}).filter(item -> item != null).collect(Collectors.toList());
@@ -196,8 +202,14 @@ public class StudentPortalService {
 
 		double gpa = 3.0; // Mock GPA - sẽ implement sau
 
+		// Tính statistics
+		int totalCourses = gradeItems.size();
+		int completedCourses = (int) gradeItems.stream().filter(item -> "Đã hoàn thành".equals(item.getStatus()))
+				.count();
+		int inProgressCourses = (int) gradeItems.stream().filter(item -> "Đang học".equals(item.getStatus())).count();
+
 		return new StudentPortalInfo.StudentGradesInfo(studentId, student.getStudentCode(), user.getFullName(), gpa,
-				totalCredits, completedCredits, gradeItems);
+				totalCredits, completedCredits, gradeItems, totalCourses, completedCourses, inProgressCourses);
 	}
 
 	/**
@@ -209,7 +221,7 @@ public class StudentPortalService {
 		logger.info("Getting available courses for student ID: {} in semester: {}", studentId, semester);
 		logger.info("Note: Only courses from latest semester will be shown");
 
-//		Student student = getStudentById(studentId);
+		// Student student = getStudentById(studentId);
 
 		// Xác định semesterId mới nhất để lọc
 		Long latestSemesterId = getLatestSemesterId();
@@ -303,7 +315,7 @@ public class StudentPortalService {
 
 		try {
 			// Kiểm tra sinh viên tồn tại
-//			Student student = getStudentById(studentId);
+			// Student student = getStudentById(studentId);
 
 			// Kiểm tra môn học tồn tại
 			Course course = courseRepository.findById(courseId)
@@ -517,71 +529,60 @@ public class StudentPortalService {
 	 */
 	public StudentPortalInfo.PaymentInfo getPaymentInfo(Long studentId, String semester) {
 		logger.info("Getting payment info for student ID: {} in semester: {}", studentId, semester);
-		
+
 		try {
 			// Lấy thông tin semester
 			Semester semesterEntity = getSemesterBySemesterString(semester);
-			
+
 			if (semesterEntity == null) {
 				throw new RuntimeException("Không tìm thấy semester: " + semester);
 			}
-			
+
 			// Lấy danh sách enrollments của sinh viên trong semester này
 			List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(studentId, semester);
-			
+
 			// Tính tổng số tiền phải đóng từ các môn học đã đăng ký
 			BigDecimal totalAmount = BigDecimal.ZERO;
 			List<StudentPortalInfo.CoursePaymentDetail> courseDetails = new ArrayList<>();
-			
+
 			for (Enrollment enrollment : enrollments) {
 				Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
 				if (course != null) {
 					totalAmount = totalAmount.add(course.getFee());
-					
+
 					// Tạo course payment detail
 					StudentPortalInfo.CoursePaymentDetail detail = new StudentPortalInfo.CoursePaymentDetail(
-							course.getId(),
-							course.getCourseCode(),
-							course.getName(),
-							course.getCredit(),
-							course.getFee(),
-							"ENROLLED" // Status của enrollment
+							course.getId(), course.getCourseCode(), course.getName(), course.getCredit(),
+							course.getFee(), "ENROLLED" // Status của enrollment
 					);
 					courseDetails.add(detail);
 				}
 			}
-			
+
 			// Kiểm tra trạng thái thanh toán
-			Optional<Payment> paymentOpt = paymentRepository.findByStudentIdAndSemesterId(studentId, semesterEntity.getId());
-			
+			Optional<Payment> paymentOpt = paymentRepository.findByStudentIdAndSemesterId(studentId,
+					semesterEntity.getId());
+
 			String paymentStatus;
 			BigDecimal paidAmount;
 			LocalDateTime paymentDate = null;
-			
+
 			if (paymentOpt.isPresent()) {
 				Payment payment = paymentOpt.get();
 				paymentStatus = payment.getStatus().toString();
-				paidAmount = payment.getStatus() == Payment.PaymentStatus.PAID ? totalAmount : BigDecimal.ZERO;
+				paidAmount = payment.getStatus() == Status.PAID ? totalAmount : BigDecimal.ZERO;
 				paymentDate = payment.getPaymentDate();
 			} else {
 				paymentStatus = "PENDING";
 				paidAmount = BigDecimal.ZERO;
 			}
-			
+
 			// Tạo display name cho semester
 			String displayName = generateDisplayName(semester);
-			
-			return new StudentPortalInfo.PaymentInfo(
-					semesterEntity.getId(),
-					semester,
-					displayName,
-					totalAmount,
-					paidAmount,
-					paymentStatus,
-					paymentDate,
-					courseDetails
-			);
-			
+
+			return new StudentPortalInfo.PaymentInfo(semesterEntity.getId(), semester, displayName, totalAmount,
+					paidAmount, paymentStatus, paymentDate, courseDetails);
+
 		} catch (Exception e) {
 			logger.error("Error getting payment info for student ID: {} in semester: {}", studentId, semester, e);
 			throw new RuntimeException("Lỗi khi lấy thông tin thanh toán: " + e.getMessage());
@@ -589,17 +590,18 @@ public class StudentPortalService {
 	}
 
 	/**
-	 * Lấy danh sách thông tin thanh toán của tất cả các semester mà sinh viên đã đăng ký
+	 * Lấy danh sách thông tin thanh toán của tất cả các semester mà sinh viên đã
+	 * đăng ký
 	 */
 	public List<StudentPortalInfo.PaymentInfo> getAllPaymentInfo(Long studentId) {
 		logger.info("Getting all payment info for student ID: {}", studentId);
-		
+
 		try {
 			// Lấy danh sách tất cả semester mà sinh viên có enrollment
 			List<String> semesters = enrollmentRepository.findDistinctSemestersByStudentId(studentId);
-			
+
 			List<StudentPortalInfo.PaymentInfo> paymentInfos = new ArrayList<>();
-			
+
 			for (String semester : semesters) {
 				try {
 					StudentPortalInfo.PaymentInfo paymentInfo = getPaymentInfo(studentId, semester);
@@ -609,12 +611,12 @@ public class StudentPortalService {
 					// Continue with other semesters
 				}
 			}
-			
+
 			// Sort by semester descending (newest first)
 			paymentInfos.sort((p1, p2) -> p2.getSemester().compareTo(p1.getSemester()));
-			
+
 			return paymentInfos;
-			
+
 		} catch (Exception e) {
 			logger.error("Error getting all payment info for student ID: {}", studentId, e);
 			throw new RuntimeException("Lỗi khi lấy thông tin thanh toán: " + e.getMessage());
@@ -626,23 +628,24 @@ public class StudentPortalService {
 	 */
 	public Payment createPayment(Long studentId, String semester) {
 		logger.info("Creating payment for student ID: {} in semester: {}", studentId, semester);
-		
+
 		try {
 			Semester semesterEntity = getSemesterBySemesterString(semester);
 			if (semesterEntity == null) {
 				throw new RuntimeException("Không tìm thấy semester: " + semester);
 			}
-			
+
 			// Kiểm tra xem đã có payment chưa
-			Optional<Payment> existingPayment = paymentRepository.findByStudentIdAndSemesterId(studentId, semesterEntity.getId());
+			Optional<Payment> existingPayment = paymentRepository.findByStudentIdAndSemesterId(studentId,
+					semesterEntity.getId());
 			if (existingPayment.isPresent()) {
 				return existingPayment.get();
 			}
-			
+
 			// Tạo payment mới
 			Payment payment = new Payment(studentId, semesterEntity.getId());
 			return paymentRepository.save(payment);
-			
+
 		} catch (Exception e) {
 			logger.error("Error creating payment for student ID: {} in semester: {}", studentId, semester, e);
 			throw new RuntimeException("Lỗi khi tạo payment: " + e.getMessage());
@@ -653,10 +656,58 @@ public class StudentPortalService {
 	 * Helper method để lấy Semester entity từ semester string
 	 */
 	private Semester getSemesterBySemesterString(String semester) {
-		return semesterRepository.findAll().stream()
-				.filter(s -> s.getSemester().equals(semester))
-				.findFirst()
+		return semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester)).findFirst()
 				.orElse(null);
+	}
+
+	/**
+	 * Xuất bảng điểm ra file CSV
+	 */
+	public byte[] exportGradesToCsv(Long studentId, String semester) {
+		try {
+			StudentPortalInfo.StudentGradesInfo grades = getStudentGrades(studentId, semester);
+
+			StringBuilder csv = new StringBuilder();
+			// Add BOM for UTF-8
+			csv.append('\ufeff');
+
+			// Headers
+			csv.append(
+					"Mã môn,Tên môn học,Tín chỉ,Điểm TP1,Điểm TP2,Điểm CK,Điểm TK,Hệ số 4,Điểm chữ,Xếp loại,Trạng thái,Học kỳ\n");
+
+			// Data rows
+			for (StudentPortalInfo.GradeItem item : grades.getGradeItems()) {
+				csv.append(escapeCSV(item.getCourseCode())).append(",");
+				csv.append(escapeCSV(item.getCourseName())).append(",");
+				csv.append(item.getCredit()).append(",");
+				csv.append(item.getComponentScore1() != null ? item.getComponentScore1() : "").append(",");
+				csv.append(item.getComponentScore2() != null ? item.getComponentScore2() : "").append(",");
+				csv.append(item.getFinalExamScore() != null ? item.getFinalExamScore() : "").append(",");
+				csv.append(item.getTotalScore() != null ? item.getTotalScore() : "").append(",");
+				csv.append(item.getScoreCoefficient4() != null ? item.getScoreCoefficient4() : "").append(",");
+				csv.append(escapeCSV(item.getGrade())).append(",");
+				csv.append(escapeCSV(gradeCalculationService.getClassification(item.getTotalScore()))).append(",");
+				csv.append(escapeCSV(item.getStatus())).append(",");
+				csv.append(escapeCSV(item.getSemester())).append("\n");
+			}
+
+			return csv.toString().getBytes(StandardCharsets.UTF_8);
+		} catch (Exception e) {
+			logger.error("Error exporting grades to CSV", e);
+			throw new RuntimeException("Error exporting grades", e);
+		}
+	}
+
+	/**
+	 * Helper method để escape CSV values
+	 */
+	private String escapeCSV(String value) {
+		if (value == null)
+			return "";
+		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+			return "\"" + value.replace("\"", "\"\"") + "\"";
+		}
+		return value;
 	}
 
 }

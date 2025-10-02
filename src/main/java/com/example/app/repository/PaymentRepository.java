@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.example.app.enumvalue.Status;
 import com.example.app.model.Payment;
 
 import jakarta.transaction.Transactional;
@@ -41,12 +42,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 	/**
 	 * Lấy danh sách payments theo status
 	 */
-	List<Payment> findByStudentIdAndStatus(Long studentId, Payment.PaymentStatus status);
+	List<Payment> findByStudentIdAndStatus(Long studentId, Status status);
 
 	/**
 	 * Lấy tất cả payments theo status (for admin)
 	 */
-	List<Payment> findByStatus(Payment.PaymentStatus status);
+	List<Payment> findByStatus(Status status);
 
 	/**
 	 * Lấy payments theo semester ID
@@ -56,7 +57,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 	/**
 	 * Lấy payments theo status và semester ID
 	 */
-	List<Payment> findByStatusAndSemesterId(Payment.PaymentStatus status, Long semesterId);
+	List<Payment> findByStatusAndSemesterId(Status status, Long semesterId);
 
 	@Transactional
 	@Modifying

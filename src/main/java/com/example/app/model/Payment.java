@@ -2,6 +2,8 @@ package com.example.app.model;
 
 import java.time.LocalDateTime;
 
+import com.example.app.enumvalue.Status;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -30,17 +32,20 @@ public class Payment {
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "status", nullable = false)
-	private PaymentStatus status;
+	private Status status;
 
-	// Enum for payment status
-	public enum PaymentStatus {
-		PENDING, PAID, FAILED
+	public Payment(Long id, Long studentId, Long semesterId, LocalDateTime paymentDate, Status status) {
+		this.id = id;
+		this.studentId = studentId;
+		this.semesterId = semesterId;
+		this.paymentDate = paymentDate;
+		this.status = status;
 	}
 
 	// Constructors
 	public Payment() {
 		this.paymentDate = LocalDateTime.now();
-		this.status = PaymentStatus.PENDING;
+		this.status = Status.PENDING;
 	}
 
 	public Payment(Long studentId, Long semesterId) {
@@ -49,7 +54,7 @@ public class Payment {
 		this.semesterId = semesterId;
 	}
 
-	public Payment(Long studentId, Long semesterId, PaymentStatus status) {
+	public Payment(Long studentId, Long semesterId, Status status) {
 		this(studentId, semesterId);
 		this.status = status;
 	}
@@ -87,11 +92,11 @@ public class Payment {
 		this.paymentDate = paymentDate;
 	}
 
-	public PaymentStatus getStatus() {
+	public Status getStatus() {
 		return status;
 	}
 
-	public void setStatus(PaymentStatus status) {
+	public void setStatus(Status status) {
 		this.status = status;
 	}
 

@@ -30,12 +30,20 @@ public class EnrollmentDTO {
 	@Max(value = 10, message = "Điểm thi cuối kỳ phải <= 10")
 	private Double finalExamScore;
 
+	@Min(value = 0, message = "Điểm tổng kết phải >= 0")
+	@Max(value = 10, message = "Điểm tổng kết phải <= 10")
+	private Double totalScore;
+
+	@Min(value = 0, message = "Điểm hệ số 4 phải >= 0")
+	@Max(value = 4, message = "Điểm hệ số 4 phải <= 4")
+	private Double scoreCoefficient4;
+
 	// Constructors
 	public EnrollmentDTO() {
 	}
 
 	public EnrollmentDTO(Long id, Long studentId, Long courseId, String grade, Double componentScore1,
-			Double componentScore2, Double finalExamScore) {
+			Double componentScore2, Double finalExamScore, Double totalScore, Double scoreCoefficient4) {
 		this.id = id;
 		this.studentId = studentId;
 		this.courseId = courseId;
@@ -43,6 +51,8 @@ public class EnrollmentDTO {
 		this.componentScore1 = componentScore1;
 		this.componentScore2 = componentScore2;
 		this.finalExamScore = finalExamScore;
+		this.totalScore = totalScore;
+		this.scoreCoefficient4 = scoreCoefficient4;
 	}
 
 	// Getter & Setter
@@ -100,5 +110,21 @@ public class EnrollmentDTO {
 
 	public void setFinalExamScore(Double finalExamScore) {
 		this.finalExamScore = finalExamScore;
+	}
+
+	public Double getTotalScore() {
+		return totalScore;
+	}
+
+	public void setTotalScore(Double totalScore) {
+		this.totalScore = totalScore;
+	}
+
+	public Double getScoreCoefficient4() {
+		return scoreCoefficient4;
+	}
+
+	public void setScoreCoefficient4(Double scoreCoefficient4) {
+		this.scoreCoefficient4 = scoreCoefficient4;
 	}
 }

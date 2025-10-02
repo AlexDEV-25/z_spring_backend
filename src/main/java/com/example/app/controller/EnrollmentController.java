@@ -2,79 +2,92 @@ package com.example.app.controller;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.app.dto.EnrollmentDTO;
-import com.example.app.model.Enrollment;
+import com.example.app.dto.DepartmentDTO;
+import com.example.app.dto.PrincipalPortalInfo;
+import com.example.app.dto.SemesterDTO;
 import com.example.app.service.EnrollmentService;
 
-import jakarta.validation.Valid;
-
 @RestController
-@RequestMapping("/api/enrollments")
+@RequestMapping("/api/admin/enrollments")
+@CrossOrigin(origins = "http://localhost:4200")
 public class EnrollmentController {
 
+	private static final Logger logger = LoggerFactory.getLogger(EnrollmentController.class);
 	private final EnrollmentService enrollmentService;
 
 	public EnrollmentController(EnrollmentService enrollmentService) {
 		this.enrollmentService = enrollmentService;
 	}
 
-	// Lấy tất cả enrollment
-	@GetMapping
-	public List<EnrollmentDTO> getAllEnrollments() {
-		return enrollmentService.getAllEnrollments();
+	// Lấy danh sách khoa
+	@GetMapping("/departments")
+	public ResponseEntity<List<DepartmentDTO>> getDepartments() {
+		try {
+			List<DepartmentDTO> departments = enrollmentService.getAllDepartments();
+			return ResponseEntity.ok(departments);
+		} catch (Exception e) {
+			logger.error("Error getting departments", e);
+			return ResponseEntity.internalServerError().build();
+		}
 	}
 
-	// Lấy enrollment theo ID
-	@GetMapping("/{id}")
-	public ResponseEntity<EnrollmentDTO> getEnrollmentById(@PathVariable Long id) {
-		return enrollmentService.getEnrollmentById(id).map(ResponseEntity::ok)
-				.orElse(ResponseEntity.notFound().build());
+	// Lấy danh sách học kỳ
+	@GetMapping("/semesters")
+	public ResponseEntity<List<SemesterDTO>> getSemesters() {
+		try {
+			List<SemesterDTO> semesters = enrollmentService.getAllSemesters();
+			return ResponseEntity.ok(semesters);
+		} catch (Exception e) {
+			logger.error("Error getting semesters", e);
+			return ResponseEntity.internalServerError().build();
+		}
 	}
 
-	// Convert DTO -> Entity
-	private Enrollment convertToEntity(EnrollmentDTO dto) {
-		return new Enrollment(dto.getId(), dto.getStudentId(), dto.getCourseId(), dto.getGrade(),
-				dto.getComponentScore1(), dto.getComponentScore2(), dto.getFinalExamScore());
+	// Lấy top 20 sinh viên có điểm cao nhất theo khoa và kỳ học để trao học bổng
+
+	@GetMapping("/scholarships/top-students")
+	public ResponseEntity<List<PrincipalPortalInfo.ScholarshipCandidate>> getTopStudentsForScholarship(
+			@RequestParam(required = false) Long departmentId, @RequestParam(required = false) String semester) {
+		try {
+			logger.info("Getting top students for scholarship - Department: {}, Semester: {}", departmentId, semester);
+
+			List<PrincipalPortalInfo.ScholarshipCandidate> candidates = enrollmentService
+					.getTopStudentsForScholarship(departmentId, semester);
+			return ResponseEntity.ok(candidates);
+		} catch (Exception e) {
+			logger.error("Error getting top students for scholarship", e);
+			return ResponseEntity.internalServerError().build();
+		}
 	}
 
-	// Convert Entity -> DTO
-	private EnrollmentDTO convertToDTO(Enrollment entity) {
-		return new EnrollmentDTO(entity.getId(), entity.getStudentId(), entity.getCourseId(), entity.getGrade(),
-				entity.getComponentScore1(), entity.getComponentScore2(), entity.getFinalExamScore());
-	}
+	// Xuất danh sách học bổng ra CSV
+	@GetMapping("/scholarships/export")
+	public ResponseEntity<byte[]> exportScholarshipList(@RequestParam(required = false) Long departmentId,
+			@RequestParam(required = false) String semester) {
+		try {
+			logger.info("Exporting scholarship list - Department: {}, Semester: {}", departmentId, semester);
 
-	// Tạo mới enrollment( bất hợp lý sẽ sửa)
-	@PostMapping
-	public ResponseEntity<EnrollmentDTO> saveEnrollment(@Valid @RequestBody EnrollmentDTO dto) {
-		Enrollment saved = enrollmentService.saveEnrollment(convertToEntity(dto));
-		return ResponseEntity.status(201).body(convertToDTO(saved));
-	}
+			byte[] csvData = enrollmentService.exportScholarshipListToCsv(departmentId, semester);
 
-	// Cập nhật enrollment
-	@PutMapping("/{id}")
-	public ResponseEntity<EnrollmentDTO> updateEnrollment(@Valid @PathVariable Long id,
-			@RequestBody EnrollmentDTO dto) {
-		return enrollmentService.updateEnrollment(id, dto).map(ResponseEntity::ok)
-				.orElse(ResponseEntity.notFound().build());
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+			headers.setContentDispositionFormData("attachment", "danh_sach_hoc_bong.csv");
 
-	}
-
-	// Xóa enrollment
-	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> deleteenrollment(@PathVariable Long id) {
-		return enrollmentService.getEnrollmentById(id).map(existing -> {
-			enrollmentService.deleteEnrollment(id);
-			return ResponseEntity.noContent().<Void>build();
-		}).orElse(ResponseEntity.notFound().build());
+			return ResponseEntity.ok().headers(headers).body(csvData);
+		} catch (Exception e) {
+			logger.error("Error exporting scholarship list", e);
+			return ResponseEntity.internalServerError().build();
+		}
 	}
 }

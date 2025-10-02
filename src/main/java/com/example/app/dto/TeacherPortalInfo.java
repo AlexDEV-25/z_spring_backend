@@ -137,6 +137,8 @@ public class TeacherPortalInfo {
 		private Double componentScore1;
 		private Double componentScore2;
 		private Double finalExamScore;
+		private Double totalScore;
+		private Double scoreCoefficient4;
 
 		public StudentInfo() {
 		}
@@ -232,6 +234,22 @@ public class TeacherPortalInfo {
 
 		public void setFinalExamScore(Double finalExamScore) {
 			this.finalExamScore = finalExamScore;
+		}
+
+		public Double getTotalScore() {
+			return totalScore;
+		}
+
+		public void setTotalScore(Double totalScore) {
+			this.totalScore = totalScore;
+		}
+
+		public Double getScoreCoefficient4() {
+			return scoreCoefficient4;
+		}
+
+		public void setScoreCoefficient4(Double scoreCoefficient4) {
+			this.scoreCoefficient4 = scoreCoefficient4;
 		}
 	}
 

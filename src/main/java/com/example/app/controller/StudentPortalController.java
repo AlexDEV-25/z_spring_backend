@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import com.example.app.dto.StudentDTO;
 import com.example.app.dto.StudentPortalInfo;
@@ -243,24 +245,26 @@ public class StudentPortalController {
 	}
 
 	/**
-	 * Tạo payment record cho semester hiện tại
+	 * Xuất bảng điểm ra file CSV
 	 */
-	@PostMapping("/payment/create")
-	public ResponseEntity<String> createPayment(@RequestParam(required = false) String semester) {
+	@GetMapping("/grades/export")
+	public ResponseEntity<byte[]> exportGrades(@RequestParam(required = false) String semester) {
 		try {
 			Long studentId = getCurrentStudentId();
-			logger.info("Creating payment for student ID: {} in semester: {}", studentId, semester);
+			logger.info("Exporting grades for student ID: {} in semester: {}", studentId, semester);
 
-			// Nếu không có semester, lấy semester mới nhất
-			if (semester == null || semester.trim().isEmpty()) {
-				semester = studentPortalService.getLatestSemesterInfo();
-			}
-
-			studentPortalService.createPayment(studentId, semester);
-			return ResponseEntity.ok("Payment record created successfully");
+			byte[] csvData = studentPortalService.exportGradesToCsv(studentId, semester);
+			
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+			headers.setContentDispositionFormData("attachment", "bang_diem.csv");
+			
+			return ResponseEntity.ok()
+					.headers(headers)
+					.body(csvData);
 		} catch (Exception e) {
-			logger.error("Error creating payment", e);
-			return ResponseEntity.internalServerError().body("Error creating payment: " + e.getMessage());
+			logger.error("Error exporting grades", e);
+			return ResponseEntity.internalServerError().build();
 		}
 	}
 
@@ -270,7 +274,6 @@ public class StudentPortalController {
 	private Long getCurrentStudentId() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		String username = authentication.getName();
-
 		return studentService.getStudentByUsername(username).map(StudentDTO::getId)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin sinh viên"));
 	}

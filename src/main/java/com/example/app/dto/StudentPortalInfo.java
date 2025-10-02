@@ -192,13 +192,18 @@ public class StudentPortalInfo {
 		private Integer totalCredits;
 		private Integer completedCredits;
 		private List<GradeItem> gradeItems;
+		// Statistics
+		private Integer totalCourses;
+		private Integer completedCourses;
+		private Integer inProgressCourses;
 
 		// Constructors
 		public StudentGradesInfo() {
 		}
 
 		public StudentGradesInfo(Long studentId, String studentCode, String studentName, Double gpa,
-				Integer totalCredits, Integer completedCredits, List<GradeItem> gradeItems) {
+				Integer totalCredits, Integer completedCredits, List<GradeItem> gradeItems,
+				Integer totalCourses, Integer completedCourses, Integer inProgressCourses) {
 			this.studentId = studentId;
 			this.studentCode = studentCode;
 			this.studentName = studentName;
@@ -206,6 +211,9 @@ public class StudentPortalInfo {
 			this.totalCredits = totalCredits;
 			this.completedCredits = completedCredits;
 			this.gradeItems = gradeItems;
+			this.totalCourses = totalCourses;
+			this.completedCourses = completedCourses;
+			this.inProgressCourses = inProgressCourses;
 		}
 
 		// Getters and Setters
@@ -264,6 +272,30 @@ public class StudentPortalInfo {
 		public void setGradeItems(List<GradeItem> gradeItems) {
 			this.gradeItems = gradeItems;
 		}
+
+		public Integer getTotalCourses() {
+			return totalCourses;
+		}
+
+		public void setTotalCourses(Integer totalCourses) {
+			this.totalCourses = totalCourses;
+		}
+
+		public Integer getCompletedCourses() {
+			return completedCourses;
+		}
+
+		public void setCompletedCourses(Integer completedCourses) {
+			this.completedCourses = completedCourses;
+		}
+
+		public Integer getInProgressCourses() {
+			return inProgressCourses;
+		}
+
+		public void setInProgressCourses(Integer inProgressCourses) {
+			this.inProgressCourses = inProgressCourses;
+		}
 	}
 
 	// điểm của từng môn
@@ -275,6 +307,8 @@ public class StudentPortalInfo {
 		private Double componentScore1;
 		private Double componentScore2;
 		private Double finalExamScore;
+		private Double totalScore;
+		private Double scoreCoefficient4;
 		private String grade;
 		private String semester;
 		private String status;
@@ -284,7 +318,8 @@ public class StudentPortalInfo {
 		}
 
 		public GradeItem(Long courseId, String courseCode, String courseName, Integer credit, Double componentScore1,
-				Double componentScore2, Double finalExamScore, String grade, String semester, String status) {
+				Double componentScore2, Double finalExamScore, Double totalScore, Double scoreCoefficient4, 
+				String grade, String semester, String status) {
 			this.courseId = courseId;
 			this.courseCode = courseCode;
 			this.courseName = courseName;
@@ -292,6 +327,8 @@ public class StudentPortalInfo {
 			this.componentScore1 = componentScore1;
 			this.componentScore2 = componentScore2;
 			this.finalExamScore = finalExamScore;
+			this.totalScore = totalScore;
+			this.scoreCoefficient4 = scoreCoefficient4;
 			this.grade = grade;
 			this.semester = semester;
 			this.status = status;
@@ -376,6 +413,22 @@ public class StudentPortalInfo {
 
 		public void setStatus(String status) {
 			this.status = status;
+		}
+
+		public Double getTotalScore() {
+			return totalScore;
+		}
+
+		public void setTotalScore(Double totalScore) {
+			this.totalScore = totalScore;
+		}
+
+		public Double getScoreCoefficient4() {
+			return scoreCoefficient4;
+		}
+
+		public void setScoreCoefficient4(Double scoreCoefficient4) {
+			this.scoreCoefficient4 = scoreCoefficient4;
 		}
 	}
 

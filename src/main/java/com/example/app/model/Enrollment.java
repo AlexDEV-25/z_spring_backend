@@ -32,8 +32,14 @@ public class Enrollment {
 	@Column(name = "final_exam_score")
 	private Double finalExamScore;
 
+	@Column(name = "total_score")
+	private Double totalScore;
+
+	@Column(name = "score_coefficient_4")
+	private Double scoreCoefficient4;
+
 	public Enrollment(Long id, Long studentId, Long courseId, String grade, Double componentScore1,
-			Double componentScore2, Double finalExamScore) {
+			Double componentScore2, Double finalExamScore, Double totalScore, Double scoreCoefficient4) {
 		this.id = id;
 		this.studentId = studentId;
 		this.courseId = courseId;
@@ -41,6 +47,8 @@ public class Enrollment {
 		this.componentScore1 = componentScore1;
 		this.componentScore2 = componentScore2;
 		this.finalExamScore = finalExamScore;
+		this.totalScore = totalScore;
+		this.scoreCoefficient4 = scoreCoefficient4;
 	}
 
 	public Enrollment() {
@@ -100,5 +108,21 @@ public class Enrollment {
 
 	public void setFinalExamScore(Double finalExamScore) {
 		this.finalExamScore = finalExamScore;
+	}
+
+	public Double getTotalScore() {
+		return totalScore;
+	}
+
+	public void setTotalScore(Double totalScore) {
+		this.totalScore = totalScore;
+	}
+
+	public Double getScoreCoefficient4() {
+		return scoreCoefficient4;
+	}
+
+	public void setScoreCoefficient4(Double scoreCoefficient4) {
+		this.scoreCoefficient4 = scoreCoefficient4;
 	}
 }

@@ -1,5 +1,6 @@
 package com.example.app.service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -219,6 +220,10 @@ public class TeacherPortalService {
 			StudentInfo studentInfo = new StudentInfo(student.getId(), student.getStudentCode(), user.getFullName(),
 					user.getEmail(), className, enrollment.getGrade(), enrollment.getComponentScore1(),
 					enrollment.getComponentScore2(), enrollment.getFinalExamScore(), semesterId);
+			
+			// Set calculated scores
+			studentInfo.setTotalScore(enrollment.getTotalScore());
+			studentInfo.setScoreCoefficient4(enrollment.getScoreCoefficient4());
 
 			students.add(studentInfo);
 		}
@@ -351,5 +356,53 @@ public class TeacherPortalService {
 			logger.error("Error changing password for lecturer ID: {}", lecturerId, e);
 			return new TeacherPortalInfo.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage());
 		}
+	}
+
+	/**
+	 * Xuất bảng điểm lớp học ra file CSV
+	 */
+	public byte[] exportClassGradesToCsv(Long teachingId, Long lecturerId) {
+		try {
+			// Lấy danh sách sinh viên trong lớp
+			List<StudentInfo> students = getStudentsForClass(teachingId);
+			
+			StringBuilder csv = new StringBuilder();
+			// Add BOM for UTF-8
+			csv.append('\ufeff');
+			
+			// Headers
+			csv.append("STT,Mã SV,Họ tên,Email,Điểm TP1,Điểm TP2,Điểm thi CK,Điểm tổng kết,Hệ số 4,Điểm chữ\n");
+			
+			// Data rows
+			for (int i = 0; i < students.size(); i++) {
+				StudentInfo student = students.get(i);
+				csv.append(i + 1).append(",");
+				csv.append(escapeCSV(student.getStudentCode())).append(",");
+				csv.append(escapeCSV(student.getFullName())).append(",");
+				csv.append(escapeCSV(student.getEmail())).append(",");
+				csv.append(student.getComponentScore1() != null ? student.getComponentScore1() : "").append(",");
+				csv.append(student.getComponentScore2() != null ? student.getComponentScore2() : "").append(",");
+				csv.append(student.getFinalExamScore() != null ? student.getFinalExamScore() : "").append(",");
+				csv.append(student.getTotalScore() != null ? student.getTotalScore() : "").append(",");
+				csv.append(student.getScoreCoefficient4() != null ? student.getScoreCoefficient4() : "").append(",");
+				csv.append(escapeCSV(student.getGrade())).append("\n");
+			}
+			
+			return csv.toString().getBytes(StandardCharsets.UTF_8);
+		} catch (Exception e) {
+			logger.error("Error exporting class grades to CSV", e);
+			throw new RuntimeException("Error exporting class grades", e);
+		}
+	}
+	
+	/**
+	 * Helper method để escape CSV values
+	 */
+	private String escapeCSV(String value) {
+		if (value == null) return "";
+		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+			return "\"" + value.replace("\"", "\"\"") + "\"";
+		}
+		return value;
 	}
 }

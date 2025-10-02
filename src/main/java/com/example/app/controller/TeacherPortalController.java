@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import com.example.app.dto.EnrollmentDTO;
 import com.example.app.dto.TeacherPortalInfo;
@@ -192,6 +194,30 @@ public class TeacherPortalController {
 			logger.error("Error changing password", e);
 			return ResponseEntity
 					.ok(new TeacherPortalInfo.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * Xuất bảng điểm lớp học ra file CSV
+	 */
+	@GetMapping("/classes/{teachingId}/export")
+	public ResponseEntity<byte[]> exportClassGrades(@PathVariable Long teachingId) {
+		try {
+			Long lecturerId = getCurrentLecturerId();
+			logger.info("Exporting grades for teaching ID: {} by lecturer: {}", teachingId, lecturerId);
+
+			byte[] csvData = teacherService.exportClassGradesToCsv(teachingId, lecturerId);
+			
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+			headers.setContentDispositionFormData("attachment", "bang_diem_lop.csv");
+			
+			return ResponseEntity.ok()
+					.headers(headers)
+					.body(csvData);
+		} catch (Exception e) {
+			logger.error("Error exporting class grades", e);
+			return ResponseEntity.internalServerError().build();
 		}
 	}
 
