@@ -92,15 +92,20 @@ public class EnrollmentService {
 	}
 
 	/**
-	 * Lấy top 20 sinh viên có điểm cao nhất theo khoa và kỳ học để trao học bổng
-	 * Tính GPA dựa trên trung bình total_score của các môn trong 1 kỳ học cụ thể
+	 * Lấy tất cả sinh viên có GPA trung bình kỳ >= 3.6 theo khoa và kỳ học để trao học bổng
+	 * 
+	 * Cách tính GPA:
+	 * 1. Lấy tất cả môn học của sinh viên trong 1 kỳ
+	 * 2. Tính GPA có trọng số: Σ(điểm_môn_i * tín_chỉ_i) / Σ(tín_chỉ_i)
+	 * 3. Chuyển từ thang 10 sang thang 4: (điểm_thang_10 / 10) * 4
+	 * 4. Chỉ lấy sinh viên có GPA >= 3.6
 	 * 
 	 * Database schema: enrollments -> students -> users -> departments enrollments
 	 * -> courses -> semesters students -> classes
 	 */
-	public List<PrincipalPortalInfo.ScholarshipCandidate> getTopStudentsForScholarship(Long departmentId,
+	public List<PrincipalPortalInfo.ScholarshipCandidate> getStudentsEligibleForScholarship(Long departmentId,
 			String semester) {
-		logger.info("Getting top students for scholarship - Department: {}, Semester: {}", departmentId, semester);
+		logger.info("Getting students eligible for scholarship (GPA >= 3.6) - Department: {}, Semester: {}", departmentId, semester);
 
 		try {
 			// Map để lưu GPA của từng sinh viên theo semester
@@ -175,9 +180,17 @@ public class EnrollmentService {
 			logger.info("Processed {}/{} enrollments, {} valid for GPA calculation", validEnrollments,
 					processedEnrollments, studentGpaMap.size());
 
-			// Tạo danh sách candidates và sắp xếp theo GPA
+			// Debug: Log một vài ví dụ tính GPA
+			if (!studentGpaMap.isEmpty()) {
+				PrincipalPortalInfo.StudentGpaInfo sampleInfo = studentGpaMap.values().iterator().next();
+				logger.debug("Sample GPA calculation - Student: {}, Total Credits: {}, GPA: {}", 
+					sampleInfo.getStudentCode(), sampleInfo.getTotalCredits(), sampleInfo.getGpa());
+			}
+
+			// Tạo danh sách candidates - lấy tất cả sinh viên có GPA trung bình kỳ >= 3.6
 			List<PrincipalPortalInfo.ScholarshipCandidate> candidates = studentGpaMap.values().stream()
 					.filter(info -> info.getTotalCredits() > 0) // Chỉ lấy sinh viên có môn học
+					.filter(info -> info.getGpa() >= 3.6) // Chỉ lấy sinh viên có GPA trung bình tất cả môn trong kỳ >= 3.6
 					.map(info -> {
 						// Lấy thông tin department
 						String departmentName = "Unknown";
@@ -197,11 +210,14 @@ public class EnrollmentService {
 							}
 						}
 
-						return new ScholarshipCandidate(info.getStudentId(), info.getStudentCode(), info.getFullName(),
+						// Tạo candidate object
+						ScholarshipCandidate candidate = new ScholarshipCandidate(info.getStudentId(), info.getStudentCode(), info.getFullName(),
 								className, departmentName, info.getGpa(), info.getTotalCredits(),
-								info.getCompletedCredits(), info.getSemester(), 0 // rank sẽ được set sau
+								info.getCompletedCredits(), info.getSemester(), 0, true // rank sẽ được set sau, eligible = true vì đã filter
 						);
-					}).sorted(Comparator.comparing(ScholarshipCandidate::getGpa).reversed()).limit(20)
+
+						return candidate;
+					}).sorted(Comparator.comparing(ScholarshipCandidate::getGpa).reversed())
 					.collect(Collectors.toList());
 
 			// Set rank
@@ -209,18 +225,18 @@ public class EnrollmentService {
 				candidates.get(i).setRank(i + 1);
 			}
 
-			logger.info("Found {} scholarship candidates", candidates.size());
+			logger.info("Found {} students eligible for scholarship (GPA >= 3.6)", candidates.size());
 
-			// Nếu không có data thật, fallback to mock data
+			// Nếu không có data thật, return empty list
 			if (candidates.isEmpty()) {
-				logger.warn("No real scholarship candidates found, using mock data");
+				logger.warn("No students eligible for scholarship found");
 				return new ArrayList<>();
 			}
 
 			return candidates;
 
 		} catch (Exception e) {
-			logger.error("Error getting top students for scholarship", e);
+			logger.error("Error getting students eligible for scholarship", e);
 			// Return empty list instead of mock data to encourage fixing database issues
 			return new ArrayList<>();
 		}
@@ -231,7 +247,7 @@ public class EnrollmentService {
 	 */
 	public byte[] exportScholarshipListToCsv(Long departmentId, String semester) {
 		try {
-			List<PrincipalPortalInfo.ScholarshipCandidate> candidates = getTopStudentsForScholarship(departmentId,
+			List<PrincipalPortalInfo.ScholarshipCandidate> candidates = getStudentsEligibleForScholarship(departmentId,
 					semester);
 
 			StringBuilder csv = new StringBuilder();
@@ -239,7 +255,7 @@ public class EnrollmentService {
 			csv.append('\ufeff');
 
 			// Headers
-			csv.append("Hạng,Mã SV,Họ tên,Lớp,Khoa,GPA,Tổng TC,TC hoàn thành,Học kỳ\n");
+			csv.append("Hạng,Mã SV,Họ tên,Lớp,Khoa,GPA,Tổng TC,TC hoàn thành,Học kỳ,Đủ điều kiện học bổng\n");
 
 			// Data rows
 			for (PrincipalPortalInfo.ScholarshipCandidate candidate : candidates) {
@@ -251,7 +267,8 @@ public class EnrollmentService {
 				csv.append(String.format("%.2f", candidate.getGpa())).append(",");
 				csv.append(candidate.getTotalCredits()).append(",");
 				csv.append(candidate.getCompletedCredits()).append(",");
-				csv.append(escapeCSV(candidate.getSemester())).append("\n");
+				csv.append(escapeCSV(candidate.getSemester())).append(",");
+				csv.append(candidate.getEligibleForScholarship() ? "Có" : "Không").append("\n");
 			}
 
 			return csv.toString().getBytes(StandardCharsets.UTF_8);

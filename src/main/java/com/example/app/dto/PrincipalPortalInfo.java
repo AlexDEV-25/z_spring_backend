@@ -416,13 +416,14 @@ public class PrincipalPortalInfo {
 		private Integer completedCredits;
 		private String semester;
 		private Integer rank;
+		private Boolean eligibleForScholarship; // Đủ điều kiện học bổng (GPA >= 3.6)
 
 		public ScholarshipCandidate() {
 		}
 
 		public ScholarshipCandidate(Long studentId, String studentCode, String fullName, String className,
 				String departmentName, Double gpa, Integer totalCredits, Integer completedCredits, String semester,
-				Integer rank) {
+				Integer rank, Boolean eligibleForScholarship) {
 			this.studentId = studentId;
 			this.studentCode = studentCode;
 			this.fullName = fullName;
@@ -433,6 +434,7 @@ public class PrincipalPortalInfo {
 			this.completedCredits = completedCredits;
 			this.semester = semester;
 			this.rank = rank;
+			this.eligibleForScholarship = eligibleForScholarship;
 		}
 
 		// Getters and Setters
@@ -515,6 +517,19 @@ public class PrincipalPortalInfo {
 		public void setRank(Integer rank) {
 			this.rank = rank;
 		}
+
+		public Boolean getEligibleForScholarship() {
+			return eligibleForScholarship;
+		}
+
+		public void setEligibleForScholarship(Boolean eligibleForScholarship) {
+			this.eligibleForScholarship = eligibleForScholarship;
+		}
+
+		// Helper method để kiểm tra điều kiện học bổng
+		public boolean isEligibleForScholarship() {
+			return this.gpa != null && this.gpa >= 3.6;
+		}
 	}
 
 	// Helper class để tính GPA
@@ -530,6 +545,7 @@ public class PrincipalPortalInfo {
 		private int completedCredits = 0;
 
 		public void addScore(double score, int credits) {
+			// Tích lũy điểm của từng môn nhân với tín chỉ để tính trung bình có trọng số
 			totalScoreSum += score * credits;
 			totalCredits += credits;
 			// Điểm qua môn >= 5.0 (thang điểm 10)
@@ -541,12 +557,15 @@ public class PrincipalPortalInfo {
 		public double getGpa() {
 			if (totalCredits <= 0)
 				return 0.0;
-			// Tính GPA trung bình có trọng số theo tín chỉ
-			// totalScoreSum đã là tổng (điểm * tín chỉ)
-			// Chia cho totalCredits để có điểm trung bình
-			// Chia 10 nhân 4 để chuyển từ thang 10 sang thang 4
-			double averageScore = totalScoreSum / totalCredits;
-			return averageScore / 10.0 * 4.0; // Convert to 4.0 scale
+			
+			// Tính GPA trung bình có trọng số của TẤT CẢ các môn trong kỳ
+			// Công thức: GPA = Σ(điểm_môn_i * tín_chỉ_i) / Σ(tín_chỉ_i)
+			// totalScoreSum = Σ(điểm_môn_i * tín_chỉ_i)
+			// totalCredits = Σ(tín_chỉ_i)
+			double averageScore = totalScoreSum / totalCredits; // Điểm trung bình thang 10
+			
+			// Chuyển từ thang 10 sang thang 4: (điểm_thang_10 / 10) * 4
+			return averageScore / 10.0 * 4.0;
 		}
 
 		public void setStudentInfo(Student student, User user, String semester) {

@@ -54,19 +54,19 @@ public class EnrollmentController {
 		}
 	}
 
-	// Lấy top 20 sinh viên có điểm cao nhất theo khoa và kỳ học để trao học bổng
+	// Lấy tất cả sinh viên có GPA >= 3.6 theo khoa và kỳ học để trao học bổng
 
-	@GetMapping("/scholarships/top-students")
-	public ResponseEntity<List<PrincipalPortalInfo.ScholarshipCandidate>> getTopStudentsForScholarship(
+	@GetMapping("/scholarships/eligible-students")
+	public ResponseEntity<List<PrincipalPortalInfo.ScholarshipCandidate>> getStudentsEligibleForScholarship(
 			@RequestParam(required = false) Long departmentId, @RequestParam(required = false) String semester) {
 		try {
-			logger.info("Getting top students for scholarship - Department: {}, Semester: {}", departmentId, semester);
+			logger.info("Getting students eligible for scholarship (GPA >= 3.6) - Department: {}, Semester: {}", departmentId, semester);
 
 			List<PrincipalPortalInfo.ScholarshipCandidate> candidates = enrollmentService
-					.getTopStudentsForScholarship(departmentId, semester);
+					.getStudentsEligibleForScholarship(departmentId, semester);
 			return ResponseEntity.ok(candidates);
 		} catch (Exception e) {
-			logger.error("Error getting top students for scholarship", e);
+			logger.error("Error getting students eligible for scholarship", e);
 			return ResponseEntity.internalServerError().build();
 		}
 	}
