@@ -53,9 +53,7 @@ public class PaymentService {
 		this.userRepository = userRepository;
 	}
 
-	/**
-	 * Lấy tất cả payments với filtering và thông tin bổ sung
-	 */
+	// Lấy tất cả payments của tất cả sinh viên
 	public List<PaymentWithDetails> getAllPayments(String status, String semester) {
 		logger.info("Getting all payments with status: {} and semester: {}", status, semester);
 
@@ -74,6 +72,7 @@ public class PaymentService {
 		}
 	}
 
+	//
 	private PaymentWithDetails convertToPaymentWithDetails(Payment payment) {
 		PaymentWithDetails result = new PaymentWithDetails();
 		result.setId(payment.getId());
@@ -116,9 +115,7 @@ public class PaymentService {
 		return new Payment(dto.getId(), dto.getStudentId(), dto.getSemesterId(), dto.getPaymentDate(), dto.getStatus());
 	}
 
-	/**
-	 * Lấy payment theo ID
-	 */
+	// Lấy payment theo ID
 	public PaymentDTO getPaymentById(Long id) {
 		logger.info("Getting payment by ID: {}", id);
 
@@ -126,9 +123,7 @@ public class PaymentService {
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy payment với ID: " + id));
 	}
 
-	/**
-	 * Lấy payment detail với thông tin đầy đủ
-	 */
+	// Lấy chi tiết payment
 	public PaymentDetailResponse getPaymentDetail(Long paymentId) {
 		logger.info("Getting payment detail for ID: {}", paymentId);
 
@@ -178,9 +173,7 @@ public class PaymentService {
 		}
 	}
 
-	/**
-	 * Cập nhật trạng thái thanh toán
-	 */
+	// Cập nhật trạng thái thanh toán vào DB
 	public PaymentDTO updatePaymentStatus(Long paymentId, String newStatus, String reason) {
 		logger.info("Updating payment status for ID: {} to status: {} with reason: {}", paymentId, newStatus, reason);
 
@@ -217,9 +210,7 @@ public class PaymentService {
 		}
 	}
 
-	/**
-	 * Lấy payments theo student ID
-	 */
+	// Lấy tất cả payment của 1 sinh viên
 	public List<Payment> getPaymentsByStudentId(Long studentId) {
 		logger.info("Getting payments for student ID: {}", studentId);
 
@@ -231,9 +222,7 @@ public class PaymentService {
 		}
 	}
 
-	/**
-	 * Lấy thống kê payments
-	 */
+	// Lấy thống kê payments
 	public PrincipalPortalInfo.PaymentStatistics getPaymentStatistics(String semester) {
 		logger.info("Getting payment statistics for semester: {}", semester);
 
@@ -282,9 +271,7 @@ public class PaymentService {
 		}
 	}
 
-	/**
-	 * Tính toán số tiền của một payment dựa trên enrollments
-	 */
+	// Tính toán số tiền của một payment dựa trên enrollments
 	private double calculatePaymentAmount(Payment payment) {
 		try {
 			// Get semester string from payment's semesterId
@@ -313,17 +300,13 @@ public class PaymentService {
 		}
 	}
 
-	/**
-	 * Helper method để lấy Semester entity từ semester string
-	 */
+	// Lấy Semester entity từ semester string
 	private Semester getSemesterByString(String semester) {
 		return semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester)).findFirst()
 				.orElse(null);
 	}
 
-	/**
-	 * Xuất danh sách payments ra file CSV
-	 */
+	// Xuất danh sách payments ra file CSV
 	public byte[] exportPaymentsToCsv(String semester) {
 		try {
 			List<PaymentWithDetails> payments = getAllPayments("", "");

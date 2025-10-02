@@ -34,9 +34,7 @@ public class PaymentController {
 		this.paymentService = paymentService;
 	}
 
-	/**
-	 * Lấy tất cả payments với filtering
-	 */
+	// Lấy tất cả payments
 	@GetMapping
 	public ResponseEntity<List<PrincipalPortalInfo.PaymentWithDetails>> getAllPayments(
 			@RequestParam(required = false) String status, @RequestParam(required = false) String semester) {
@@ -50,9 +48,7 @@ public class PaymentController {
 		}
 	}
 
-	/**
-	 * Lấy payment theo ID
-	 */
+	// Lấy payment theo ID
 	@GetMapping("/{id}")
 	public ResponseEntity<PaymentDTO> getPaymentById(@PathVariable Long id) {
 		try {
@@ -65,9 +61,7 @@ public class PaymentController {
 		}
 	}
 
-	/**
-	 * Lấy payment detail với thông tin đầy đủ
-	 */
+	// Lấy chi tiết payment
 	@GetMapping("/{id}/detail")
 	public ResponseEntity<PrincipalPortalInfo.PaymentDetailResponse> getPaymentDetail(@PathVariable Long id) {
 		try {
@@ -87,7 +81,8 @@ public class PaymentController {
 		try {
 			logger.info("Updating payment status for ID: {} to status: {}", id, request.getStatus());
 
-			PaymentDTO updatedPayment = paymentService.updatePaymentStatus(id, request.getStatus(), request.getReason());
+			PaymentDTO updatedPayment = paymentService.updatePaymentStatus(id, request.getStatus(),
+					request.getReason());
 
 			return ResponseEntity.ok(new PrincipalPortalInfo.PaymentStatusUpdateResponse(true,
 					"Cập nhật trạng thái thanh toán thành công", updatedPayment));
@@ -98,9 +93,7 @@ public class PaymentController {
 		}
 	}
 
-	/**
-	 * Lấy payments theo student ID
-	 */
+	// Lấy tất cả payment của 1 sinh viên
 	@GetMapping("/student/{studentId}")
 	public ResponseEntity<List<Payment>> getPaymentsByStudentId(@PathVariable Long studentId) {
 		try {

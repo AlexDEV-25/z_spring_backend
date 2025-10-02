@@ -75,6 +75,7 @@ public class PrincipalPortalInfo {
 		}
 	}
 
+	// lấy số lượng các payment và tình trạng của payment
 	public static class PaymentStatistics {
 		private long totalPayments;
 		private long paidPayments;
@@ -156,6 +157,7 @@ public class PrincipalPortalInfo {
 		}
 	}
 
+	// chi tiết payment
 	public static class PaymentDetailResponse {
 		private Long id;
 		private Long studentId;
@@ -268,6 +270,7 @@ public class PrincipalPortalInfo {
 		}
 	}
 
+	// chi tiết học phần đã học
 	public static class CoursePaymentDetail {
 		private Long courseId;
 		private String courseCode;
@@ -328,6 +331,7 @@ public class PrincipalPortalInfo {
 		}
 	}
 
+	// payment
 	public static class PaymentWithDetails {
 		private Long id;
 		private Long studentId;
