@@ -48,11 +48,13 @@ public class TeacherPortalService {
 	private final SemesterRepository semesterRepository;
 	private final LecturerRepository lecturerRepository;
 	private final BCryptPasswordEncoder passwordEncoder;
+	private final GradeCalculationService gradeCalculationService;
 
 	public TeacherPortalService(TeachingRepository teachingRepository, CourseRepository courseRepository,
 			StudentRepository studentRepository, EnrollmentRepository enrollmentRepository,
 			UserRepository userRepository, EnrollmentService enrollmentService, ClassRepository classRepository,
-			SemesterRepository semesterRepository, LecturerRepository lecturerRepository) {
+			SemesterRepository semesterRepository, LecturerRepository lecturerRepository,
+			GradeCalculationService gradeCalculationService) {
 		this.teachingRepository = teachingRepository;
 		this.courseRepository = courseRepository;
 		this.studentRepository = studentRepository;
@@ -63,6 +65,7 @@ public class TeacherPortalService {
 		this.semesterRepository = semesterRepository;
 		this.lecturerRepository = lecturerRepository;
 		this.passwordEncoder = new BCryptPasswordEncoder();
+		this.gradeCalculationService = gradeCalculationService;
 	}
 
 	/**
@@ -163,6 +166,23 @@ public class TeacherPortalService {
 		return getStudentsForCourse(teaching.getCourseId());
 	}
 
+	// Dùng trong teacherportalservice
+	public Enrollment saveEnrollment(Enrollment entity) {
+		// Compute grades and scores if component scores are present
+		if (entity != null) {
+			Double totalScore = gradeCalculationService.calculateTotalScore(entity.getComponentScore1(),
+					entity.getComponentScore2(), entity.getFinalExamScore());
+
+			if (totalScore != null) {
+				entity.setTotalScore(totalScore);
+				entity.setScoreCoefficient4(gradeCalculationService.convertToCoefficient4(totalScore));
+				entity.setGrade(gradeCalculationService.convertToLetterGrade(totalScore));
+			}
+		}
+		Enrollment saved = enrollmentRepository.save(entity);
+		return saved;
+	}
+
 	/**
 	 * Chấm điểm cho sinh viên (sửa enrollment)
 	 */
@@ -182,7 +202,7 @@ public class TeacherPortalService {
 		enrollment.setFinalExamScore(enrollmentDTO.getFinalExamScore());
 
 		// Lưu và để EnrollmentService tính grade
-		Enrollment updatedEnrollment = enrollmentService.saveEnrollment(enrollment);
+		Enrollment updatedEnrollment = saveEnrollment(enrollment);
 
 		logger.info("Grade updated successfully for student ID: {}", enrollmentDTO.getStudentId());
 		return updatedEnrollment;
@@ -220,7 +240,7 @@ public class TeacherPortalService {
 			StudentInfo studentInfo = new StudentInfo(student.getId(), student.getStudentCode(), user.getFullName(),
 					user.getEmail(), className, enrollment.getGrade(), enrollment.getComponentScore1(),
 					enrollment.getComponentScore2(), enrollment.getFinalExamScore(), semesterId);
-			
+
 			// Set calculated scores
 			studentInfo.setTotalScore(enrollment.getTotalScore());
 			studentInfo.setScoreCoefficient4(enrollment.getScoreCoefficient4());
@@ -365,14 +385,14 @@ public class TeacherPortalService {
 		try {
 			// Lấy danh sách sinh viên trong lớp
 			List<StudentInfo> students = getStudentsForClass(teachingId);
-			
+
 			StringBuilder csv = new StringBuilder();
 			// Add BOM for UTF-8
 			csv.append('\ufeff');
-			
+
 			// Headers
 			csv.append("STT,Mã SV,Họ tên,Email,Điểm TP1,Điểm TP2,Điểm thi CK,Điểm tổng kết,Hệ số 4,Điểm chữ\n");
-			
+
 			// Data rows
 			for (int i = 0; i < students.size(); i++) {
 				StudentInfo student = students.get(i);
@@ -387,19 +407,20 @@ public class TeacherPortalService {
 				csv.append(student.getScoreCoefficient4() != null ? student.getScoreCoefficient4() : "").append(",");
 				csv.append(escapeCSV(student.getGrade())).append("\n");
 			}
-			
+
 			return csv.toString().getBytes(StandardCharsets.UTF_8);
 		} catch (Exception e) {
 			logger.error("Error exporting class grades to CSV", e);
 			throw new RuntimeException("Error exporting class grades", e);
 		}
 	}
-	
+
 	/**
 	 * Helper method để escape CSV values
 	 */
 	private String escapeCSV(String value) {
-		if (value == null) return "";
+		if (value == null)
+			return "";
 		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
 			return "\"" + value.replace("\"", "\"\"") + "\"";
 		}

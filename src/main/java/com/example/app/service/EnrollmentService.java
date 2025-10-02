@@ -13,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.example.app.dto.DepartmentDTO;
-// DTOs will be defined in this service
-import com.example.app.dto.EnrollmentDTO;
 import com.example.app.dto.PrincipalPortalInfo;
 import com.example.app.dto.PrincipalPortalInfo.ScholarshipCandidate;
 import com.example.app.dto.SemesterDTO;
@@ -39,7 +37,6 @@ public class EnrollmentService {
 	private static final Logger logger = LoggerFactory.getLogger(EnrollmentService.class);
 
 	private final EnrollmentRepository enrollmentRepository;
-	private final GradeCalculationService gradeCalculationService;
 	private final DepartmentRepository departmentRepository;
 	private final StudentRepository studentRepository;
 	private final UserRepository userRepository;
@@ -47,12 +44,11 @@ public class EnrollmentService {
 	private final CourseRepository courseRepository;
 	private final SemesterRepository semesterRepository;
 
-	public EnrollmentService(EnrollmentRepository enrollmentRepository, GradeCalculationService gradeCalculationService,
-			DepartmentRepository departmentRepository, StudentRepository studentRepository,
-			UserRepository userRepository, ClassRepository classRepository, CourseRepository courseRepository,
-			SemesterRepository semesterRepository) {
+	public EnrollmentService(EnrollmentRepository enrollmentRepository, DepartmentRepository departmentRepository,
+			StudentRepository studentRepository, UserRepository userRepository, ClassRepository classRepository,
+			CourseRepository courseRepository, SemesterRepository semesterRepository) {
 		this.enrollmentRepository = enrollmentRepository;
-		this.gradeCalculationService = gradeCalculationService;
+
 		this.departmentRepository = departmentRepository;
 		this.studentRepository = studentRepository;
 		this.userRepository = userRepository;
@@ -61,36 +57,12 @@ public class EnrollmentService {
 		this.semesterRepository = semesterRepository;
 	}
 
-	private EnrollmentDTO convertToDTO(Enrollment entity) {
-		return new EnrollmentDTO(entity.getId(), entity.getStudentId(), entity.getCourseId(), entity.getGrade(),
-				entity.getComponentScore1(), entity.getComponentScore2(), entity.getFinalExamScore(),
-				entity.getTotalScore(), entity.getScoreCoefficient4());
-	}
-
-	public Enrollment saveEnrollment(Enrollment entity) {
-		// Compute grades and scores if component scores are present
-		if (entity != null) {
-			Double totalScore = gradeCalculationService.calculateTotalScore(entity.getComponentScore1(),
-					entity.getComponentScore2(), entity.getFinalExamScore());
-
-			if (totalScore != null) {
-				entity.setTotalScore(totalScore);
-				entity.setScoreCoefficient4(gradeCalculationService.convertToCoefficient4(totalScore));
-				entity.setGrade(gradeCalculationService.convertToLetterGrade(totalScore));
-			}
-		}
-		Enrollment saved = enrollmentRepository.save(entity);
-		return saved;
-	}
-
-	/**
-	 * Lấy danh sách tất cả khoa từ database Lấy các departments có ít nhất 1 user
-	 * (student hoặc lecturer)
-	 */
+	// Convert Entity -> DTO
 	private DepartmentDTO convertToDTO(Department entity) {
 		return new DepartmentDTO(entity.getId(), entity.getName(), entity.getCode());
 	}
 
+	// Lấy danh sách tất cả khoa từ database
 	public List<DepartmentDTO> getAllDepartments() {
 		logger.info("Getting all departments from database");
 		try {
@@ -102,14 +74,12 @@ public class EnrollmentService {
 		}
 	}
 
-	/**
-	 * Lấy danh sách tất cả học kỳ từ database
-	 */
 	// Convert Entity -> DTO
 	private SemesterDTO convertToDTO(Semester entity) {
 		return new SemesterDTO(entity.getId(), entity.getSemester());
 	}
 
+	// Lấy danh sách tất cả học kỳ từ database
 	public List<SemesterDTO> getAllSemesters() {
 		logger.info("Getting all semesters from database");
 		try {
@@ -118,81 +88,6 @@ public class EnrollmentService {
 			logger.error("Error getting semesters from database", e);
 			// Return empty list instead of mock data to force real database usage
 			return new ArrayList<>();
-		}
-	}
-
-	// Helper class để tính GPA
-	private static class StudentGpaInfo {
-		private Long studentId;
-		private String studentCode;
-		private String fullName;
-		private Long departmentId;
-		private Long classId;
-		private String semester;
-		private double totalScoreSum = 0;
-		private int totalCredits = 0;
-		private int completedCredits = 0;
-
-		public void addScore(double score, int credits) {
-			totalScoreSum += score * credits;
-			totalCredits += credits;
-			// Điểm qua môn >= 5.0 (thang điểm 10)
-			if (score >= 5.0) {
-				completedCredits += credits;
-			}
-		}
-
-		public double getGpa() {
-			if (totalCredits <= 0)
-				return 0.0;
-			// Tính GPA trung bình có trọng số theo tín chỉ
-			// totalScoreSum đã là tổng (điểm * tín chỉ)
-			// Chia cho totalCredits để có điểm trung bình
-			// Chia 10 nhân 4 để chuyển từ thang 10 sang thang 4
-			double averageScore = totalScoreSum / totalCredits;
-			return averageScore / 10.0 * 4.0; // Convert to 4.0 scale
-		}
-
-		public void setStudentInfo(Student student, User user, String semester) {
-			this.studentId = student.getId();
-			this.studentCode = student.getStudentCode();
-			this.fullName = user.getFullName();
-			this.departmentId = user.getDepartmentId();
-			this.classId = student.getClassId();
-			this.semester = semester;
-		}
-
-		// Getters
-		public Long getStudentId() {
-			return studentId;
-		}
-
-		public String getStudentCode() {
-			return studentCode;
-		}
-
-		public String getFullName() {
-			return fullName;
-		}
-
-		public Long getDepartmentId() {
-			return departmentId;
-		}
-
-		public Long getClassId() {
-			return classId;
-		}
-
-		public String getSemester() {
-			return semester;
-		}
-
-		public int getTotalCredits() {
-			return totalCredits;
-		}
-
-		public int getCompletedCredits() {
-			return completedCredits;
 		}
 	}
 
@@ -209,7 +104,7 @@ public class EnrollmentService {
 
 		try {
 			// Map để lưu GPA của từng sinh viên theo semester
-			Map<Long, StudentGpaInfo> studentGpaMap = new HashMap<>();
+			Map<Long, PrincipalPortalInfo.StudentGpaInfo> studentGpaMap = new HashMap<>();
 
 			// Lấy tất cả enrollments có điểm
 			List<Enrollment> allEnrollments = enrollmentRepository.findAll();
@@ -271,7 +166,8 @@ public class EnrollmentService {
 
 				// Tính toán GPA cho sinh viên này
 				Long studentId = enrollment.getStudentId();
-				StudentGpaInfo gpaInfo = studentGpaMap.computeIfAbsent(studentId, k -> new StudentGpaInfo());
+				PrincipalPortalInfo.StudentGpaInfo gpaInfo = studentGpaMap.computeIfAbsent(studentId,
+						k -> new PrincipalPortalInfo.StudentGpaInfo());
 				gpaInfo.addScore(enrollment.getTotalScore(), course.getCredit());
 				gpaInfo.setStudentInfo(student, user, semesterObj.getSemester());
 			}
@@ -318,7 +214,7 @@ public class EnrollmentService {
 			// Nếu không có data thật, fallback to mock data
 			if (candidates.isEmpty()) {
 				logger.warn("No real scholarship candidates found, using mock data");
-				return null;
+				return new ArrayList<>();
 			}
 
 			return candidates;

@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.example.app.enumvalue.Status;
+import com.example.app.model.Student;
+import com.example.app.model.User;
 
 public class PrincipalPortalInfo {
 	// PAYMENT
@@ -512,6 +514,81 @@ public class PrincipalPortalInfo {
 
 		public void setRank(Integer rank) {
 			this.rank = rank;
+		}
+	}
+
+	// Helper class để tính GPA
+	public static class StudentGpaInfo {
+		private Long studentId;
+		private String studentCode;
+		private String fullName;
+		private Long departmentId;
+		private Long classId;
+		private String semester;
+		private double totalScoreSum = 0;
+		private int totalCredits = 0;
+		private int completedCredits = 0;
+
+		public void addScore(double score, int credits) {
+			totalScoreSum += score * credits;
+			totalCredits += credits;
+			// Điểm qua môn >= 5.0 (thang điểm 10)
+			if (score >= 5.0) {
+				completedCredits += credits;
+			}
+		}
+
+		public double getGpa() {
+			if (totalCredits <= 0)
+				return 0.0;
+			// Tính GPA trung bình có trọng số theo tín chỉ
+			// totalScoreSum đã là tổng (điểm * tín chỉ)
+			// Chia cho totalCredits để có điểm trung bình
+			// Chia 10 nhân 4 để chuyển từ thang 10 sang thang 4
+			double averageScore = totalScoreSum / totalCredits;
+			return averageScore / 10.0 * 4.0; // Convert to 4.0 scale
+		}
+
+		public void setStudentInfo(Student student, User user, String semester) {
+			this.studentId = student.getId();
+			this.studentCode = student.getStudentCode();
+			this.fullName = user.getFullName();
+			this.departmentId = user.getDepartmentId();
+			this.classId = student.getClassId();
+			this.semester = semester;
+		}
+
+		// Getters
+		public Long getStudentId() {
+			return studentId;
+		}
+
+		public String getStudentCode() {
+			return studentCode;
+		}
+
+		public String getFullName() {
+			return fullName;
+		}
+
+		public Long getDepartmentId() {
+			return departmentId;
+		}
+
+		public Long getClassId() {
+			return classId;
+		}
+
+		public String getSemester() {
+			return semester;
+		}
+
+		public int getTotalCredits() {
+			return totalCredits;
+		}
+
+		public int getCompletedCredits() {
+			return completedCredits;
 		}
 	}
 }
