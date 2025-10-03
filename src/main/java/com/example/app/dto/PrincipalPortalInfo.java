@@ -415,7 +415,6 @@ public class PrincipalPortalInfo {
 		private Integer totalCredits;
 		private Integer completedCredits;
 		private String semester;
-		private Integer rank;
 		private Boolean eligibleForScholarship; // Đủ điều kiện học bổng (GPA >= 3.6)
 
 		public ScholarshipCandidate() {
@@ -423,7 +422,7 @@ public class PrincipalPortalInfo {
 
 		public ScholarshipCandidate(Long studentId, String studentCode, String fullName, String className,
 				String departmentName, Double gpa, Integer totalCredits, Integer completedCredits, String semester,
-				Integer rank, Boolean eligibleForScholarship) {
+				Boolean eligibleForScholarship) {
 			this.studentId = studentId;
 			this.studentCode = studentCode;
 			this.fullName = fullName;
@@ -433,7 +432,6 @@ public class PrincipalPortalInfo {
 			this.totalCredits = totalCredits;
 			this.completedCredits = completedCredits;
 			this.semester = semester;
-			this.rank = rank;
 			this.eligibleForScholarship = eligibleForScholarship;
 		}
 
@@ -510,14 +508,6 @@ public class PrincipalPortalInfo {
 			this.semester = semester;
 		}
 
-		public Integer getRank() {
-			return rank;
-		}
-
-		public void setRank(Integer rank) {
-			this.rank = rank;
-		}
-
 		public Boolean getEligibleForScholarship() {
 			return eligibleForScholarship;
 		}
@@ -540,16 +530,15 @@ public class PrincipalPortalInfo {
 		private Long departmentId;
 		private Long classId;
 		private String semester;
-		private double totalScoreSum = 0;
+		private double totalGpaWeightedSum = 0; // Tổng (điểm hệ số 4 * số tín chỉ)
 		private int totalCredits = 0;
 		private int completedCredits = 0;
 
-		public void addScore(double score, int credits) {
-			// Tích lũy điểm của từng môn nhân với tín chỉ để tính trung bình có trọng số
-			totalScoreSum += score * credits;
+		public void addScore(double scoreCoefficient4, int credits, double totalScore) {
+			totalGpaWeightedSum += scoreCoefficient4 * credits;
 			totalCredits += credits;
-			// Điểm qua môn >= 5.0 (thang điểm 10)
-			if (score >= 5.0) {
+			// Điểm qua môn >= 2.0 (thang điểm 4)
+			if (totalScore >= 2.0) {
 				completedCredits += credits;
 			}
 		}
@@ -557,15 +546,7 @@ public class PrincipalPortalInfo {
 		public double getGpa() {
 			if (totalCredits <= 0)
 				return 0.0;
-			
-			// Tính GPA trung bình có trọng số của TẤT CẢ các môn trong kỳ
-			// Công thức: GPA = Σ(điểm_môn_i * tín_chỉ_i) / Σ(tín_chỉ_i)
-			// totalScoreSum = Σ(điểm_môn_i * tín_chỉ_i)
-			// totalCredits = Σ(tín_chỉ_i)
-			double averageScore = totalScoreSum / totalCredits; // Điểm trung bình thang 10
-			
-			// Chuyển từ thang 10 sang thang 4: (điểm_thang_10 / 10) * 4
-			return averageScore / 10.0 * 4.0;
+			return totalGpaWeightedSum / totalCredits;
 		}
 
 		public void setStudentInfo(Student student, User user, String semester) {
