@@ -103,9 +103,16 @@ public class StudentPortalService {
 
 		logger.info("Filtering schedule by semesterId: {}", targetSemesterId);
 
-		// Lấy danh sách enrollment chính thức (ENROLLED) của sinh viên
+		// Lấy danh sách enrollment chính thức (ENROLLED) của sinh viên trong kỳ học hiện tại
 		List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId).stream()
-				.filter(e -> "ENROLLED".equals(e.getStatus())).collect(Collectors.toList());
+				.filter(e -> "ENROLLED".equals(e.getStatus()))
+				.filter(e -> {
+					Course course = courseRepository.findById(e.getCourseId()).orElse(null);
+					return course != null && course.getSemesterId() != null && course.getSemesterId().equals(targetSemesterId);
+				})
+				.collect(Collectors.toList());
+
+		logger.info("Found {} ENROLLED enrollments for student ID: {} in semester: {}", enrollments.size(), studentId, semester);
 
 		// Chuyển đổi thành schedule items, chỉ lấy courses thuộc semester được chọn
 		List<StudentPortalInfo.ScheduleItem> scheduleItems = enrollments.stream().map(enrollment -> {
