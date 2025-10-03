@@ -18,7 +18,6 @@ public class TeachingDTO {
 	@Size(max = 20, message = "Thứ trong tuần không được quá 20 ký tự")
 	private String dayOfWeek;
 
-	private Long classId;
 
 	@Size(max = 100, message = "Tên phòng học không được quá 100 ký tự")
 	private String classRoom;
@@ -27,14 +26,12 @@ public class TeachingDTO {
 	public TeachingDTO() {
 	}
 
-	public TeachingDTO(Long id, Long lecturerId, Long courseId, String period, String dayOfWeek, Long classId,
-			String classRoom) {
+	public TeachingDTO(Long id, Long lecturerId, Long courseId, String period, String dayOfWeek, String classRoom) {
 		this.id = id;
 		this.lecturerId = lecturerId;
 		this.courseId = courseId;
 		this.period = period;
 		this.dayOfWeek = dayOfWeek;
-		this.classId = classId;
 		this.classRoom = classRoom;
 	}
 
@@ -79,13 +76,6 @@ public class TeachingDTO {
 		this.dayOfWeek = dayOfWeek;
 	}
 
-	public Long getClassId() {
-		return classId;
-	}
-
-	public void setClassId(Long classId) {
-		this.classId = classId;
-	}
 
 	public String getClassRoom() {
 		return classRoom;

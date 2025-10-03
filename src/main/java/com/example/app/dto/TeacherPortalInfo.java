@@ -14,16 +14,13 @@ public class TeacherPortalInfo {
 		private String period;
 		private String dayOfWeek;
 		private String classroom;
-		private Long classId; // added for timetable context
-		private String className; // added for timetable context
 		private List<StudentInfo> students;
 
 		public TeacherScheduleInfo() {
 		}
 
 		public TeacherScheduleInfo(Long teachingId, Long courseId, String courseCode, String courseName, Integer credit,
-				String period, String dayOfWeek, String classroom, Long classId, String className,
-				List<StudentInfo> students) {
+				String period, String dayOfWeek, String classroom, List<StudentInfo> students) {
 			this.teachingId = teachingId;
 			this.courseId = courseId;
 			this.courseCode = courseCode;
@@ -32,8 +29,6 @@ public class TeacherPortalInfo {
 			this.period = period;
 			this.dayOfWeek = dayOfWeek;
 			this.classroom = classroom;
-			this.classId = classId;
-			this.className = className;
 			this.students = students;
 		}
 
@@ -99,22 +94,6 @@ public class TeacherPortalInfo {
 
 		public void setClassroom(String classroom) {
 			this.classroom = classroom;
-		}
-
-		public Long getClassId() {
-			return classId;
-		}
-
-		public void setClassId(Long classId) {
-			this.classId = classId;
-		}
-
-		public String getClassName() {
-			return className;
-		}
-
-		public void setClassName(String className) {
-			this.className = className;
 		}
 
 		public List<StudentInfo> getStudents() {

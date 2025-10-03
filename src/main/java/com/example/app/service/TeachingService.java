@@ -22,13 +22,13 @@ public class TeachingService {
 	// Convert Entity -> DTO
 	private TeachingDTO convertToDTO(Teaching entity) {
 		return new TeachingDTO(entity.getId(), entity.getLecturerId(), entity.getCourseId(), entity.getPeriod(),
-				entity.getDayOfWeek(), entity.getClassId(), entity.getClassRoom());
+				entity.getDayOfWeek(), entity.getClassRoom());
 	}
 
 	// Convert DTO -> Entity
 	private Teaching convertToEntity(TeachingDTO dto) {
 		return new Teaching(dto.getId(), dto.getLecturerId(), dto.getCourseId(), dto.getPeriod(), dto.getDayOfWeek(),
-				dto.getClassId(), dto.getClassRoom());
+				dto.getClassRoom());
 	}
 
 	public Optional<TeachingDTO> getTeachingById(Long id) {
@@ -50,7 +50,6 @@ public class TeachingService {
 			entity.setCourseId(dto.getCourseId());
 			entity.setPeriod(dto.getPeriod());
 			entity.setDayOfWeek(dto.getDayOfWeek());
-			entity.setClassId(dto.getClassId());
 			entity.setClassRoom(dto.getClassRoom());
 			return convertToDTO(teachingRepository.save(entity));
 		});

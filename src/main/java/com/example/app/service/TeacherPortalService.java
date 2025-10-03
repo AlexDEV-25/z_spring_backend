@@ -102,16 +102,9 @@ public class TeacherPortalService {
 
 			List<StudentInfo> students = getStudentsForCourse(courseId);
 
-			Long classId = teaching.getClassId();
-			String className = null;
-			if (classId != null) {
-				className = classRepository.findById(classId).map(ClassEntity::getName).orElse(null);
-			}
-
 			TeacherPortalInfo.TeacherScheduleInfo classInfo = new TeacherPortalInfo.TeacherScheduleInfo(
 					teaching.getId(), course.getId(), course.getCourseCode(), course.getName(), course.getCredit(),
-					teaching.getPeriod(), teaching.getDayOfWeek(), teaching.getClassRoom(), classId, className,
-					students);
+					teaching.getPeriod(), teaching.getDayOfWeek(), teaching.getClassRoom(), students);
 
 			teacherClasses.add(classInfo);
 		}

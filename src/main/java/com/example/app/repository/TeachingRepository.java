@@ -18,5 +18,4 @@ public interface TeachingRepository extends JpaRepository<Teaching, Long> {
 
 	List<Teaching> findByLecturerId(Long lecturerId);
 
-	void deleteByClassId(Long classId);
 }

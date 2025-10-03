@@ -27,20 +27,15 @@ public class Teaching {
 	@Column(name = "day_of_week", nullable = true)
 	private String dayOfWeek;
 
-	@Column(name = "class_id", nullable = true)
-	private Long classId;
-
 	@Column(name = "classroom", nullable = true)
 	private String classRoom;
 
-	public Teaching(Long id, Long lecturerId, Long courseId, String period, String dayOfWeek, Long classId,
-			String classRoom) {
+	public Teaching(Long id, Long lecturerId, Long courseId, String period, String dayOfWeek, String classRoom) {
 		this.id = id;
 		this.lecturerId = lecturerId;
 		this.courseId = courseId;
 		this.period = period;
 		this.dayOfWeek = dayOfWeek;
-		this.classId = classId;
 		this.classRoom = classRoom;
 	}
 
@@ -87,13 +82,6 @@ public class Teaching {
 		this.dayOfWeek = dayOfWeek;
 	}
 
-	public Long getClassId() {
-		return classId;
-	}
-
-	public void setClassId(Long classId) {
-		this.classId = classId;
-	}
 
 	public String getClassRoom() {
 		return this.classRoom;

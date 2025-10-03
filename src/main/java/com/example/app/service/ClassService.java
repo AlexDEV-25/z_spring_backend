@@ -61,7 +61,6 @@ public class ClassService {
 	@Transactional
 	public void deleteClass(Long id) {
 		studentRepository.deleteByClassId(id);
-		teachingRepository.deleteByClassId(id);
 		classRepository.deleteById(id);
 	}
 }
