@@ -22,7 +22,7 @@ import com.example.app.model.Payment;
 import com.example.app.service.PaymentService;
 
 @RestController
-@RequestMapping("/api/admin/payments")
+@RequestMapping("/api/payments")
 @CrossOrigin(origins = "http://localhost:4200")
 public class PaymentController {
 
