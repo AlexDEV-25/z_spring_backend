@@ -11,20 +11,17 @@ import com.example.app.dto.ClassDTO;
 import com.example.app.model.ClassEntity;
 import com.example.app.repository.ClassRepository;
 import com.example.app.repository.StudentRepository;
-import com.example.app.repository.TeachingRepository;
 
 @Service
 public class ClassService {
 
 	private final ClassRepository classRepository;
 	private final StudentRepository studentRepository;
-	private final TeachingRepository teachingRepository;
 
-	public ClassService(ClassRepository classRepository, StudentRepository studentRepository,
-			TeachingRepository teachingRepository) {
+	public ClassService(ClassRepository classRepository, StudentRepository studentRepository) {
 		this.classRepository = classRepository;
 		this.studentRepository = studentRepository;
-		this.teachingRepository = teachingRepository;
+
 	}
 
 	// Convert Entity -> DTO
