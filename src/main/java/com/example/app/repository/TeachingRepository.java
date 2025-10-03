@@ -18,4 +18,6 @@ public interface TeachingRepository extends JpaRepository<Teaching, Long> {
 
 	List<Teaching> findByLecturerId(Long lecturerId);
 
+	// Lấy danh sách giảng viên theo khóa học
+	List<Teaching> findByCourseId(Long courseId);
 }

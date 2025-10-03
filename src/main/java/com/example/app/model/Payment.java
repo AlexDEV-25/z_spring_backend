@@ -27,6 +27,12 @@ public class Payment {
 	@Column(name = "semester_id", nullable = true)
 	private Long semesterId;
 
+	@Column(name = "amount", nullable = false)
+	private double amount;
+
+	@Column(name = "description", length = 500)
+	private String description;
+
 	@Column(name = "payment_date", nullable = false)
 	private LocalDateTime paymentDate;
 
@@ -34,10 +40,13 @@ public class Payment {
 	@Column(name = "status", nullable = false)
 	private Status status;
 
-	public Payment(Long id, Long studentId, Long semesterId, LocalDateTime paymentDate, Status status) {
+	public Payment(Long id, Long studentId, Long semesterId, double amount, String description,
+			LocalDateTime paymentDate, Status status) {
 		this.id = id;
 		this.studentId = studentId;
 		this.semesterId = semesterId;
+		this.amount = amount;
+		this.description = description;
 		this.paymentDate = paymentDate;
 		this.status = status;
 	}
@@ -59,7 +68,6 @@ public class Payment {
 		this.status = status;
 	}
 
-	// Getters and Setters
 	public Long getId() {
 		return id;
 	}
@@ -84,6 +92,22 @@ public class Payment {
 		this.semesterId = semesterId;
 	}
 
+	public double getAmount() {
+		return amount;
+	}
+
+	public void setAmount(double amount) {
+		this.amount = amount;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
 	public LocalDateTime getPaymentDate() {
 		return paymentDate;
 	}
@@ -102,7 +126,7 @@ public class Payment {
 
 	@Override
 	public String toString() {
-		return "Payment{" + "id=" + id + ", studentId=" + studentId + ", semesterId=" + semesterId + ", paymentDate="
-				+ paymentDate + ", status=" + status + '}';
+		return "Payment [id=" + id + ", studentId=" + studentId + ", semesterId=" + semesterId + ", amount=" + amount
+				+ ", description=" + description + ", paymentDate=" + paymentDate + ", status=" + status + "]";
 	}
 }

@@ -33,6 +33,18 @@ public class CourseController {
 		return courseService.getAllCourses();
 	}
 
+	// Lấy course theo kỳ học
+	@GetMapping("/by-semester/{semesterId}")
+	public List<CourseDTO> getCoursesBySemester(@PathVariable Long semesterId) {
+		return courseService.getCoursesBySemester(semesterId);
+	}
+
+	// Lấy course theo kỳ học (không null)
+	@GetMapping("/by-semester")
+	public List<CourseDTO> getCoursesBySemesterNotNull() {
+		return courseService.getCoursesBySemesterNotNull();
+	}
+
 	// Lấy course theo ID
 	@GetMapping("/{id}")
 	public ResponseEntity<CourseDTO> getCourseById(@PathVariable Long id) {

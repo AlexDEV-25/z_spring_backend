@@ -64,6 +64,18 @@ public class CourseService {
 		});
 	}
 
+	public List<CourseDTO> getCoursesBySemester(Long semesterId) {
+		return courseRepository.findBySemesterId(semesterId).stream()
+				.map(this::convertToDTO)
+				.collect(Collectors.toList());
+	}
+
+	public List<CourseDTO> getCoursesBySemesterNotNull() {
+		return courseRepository.findBySemesterIdIsNotNull().stream()
+				.map(this::convertToDTO)
+				.collect(Collectors.toList());
+	}
+
 	@Transactional
 	public void deleteCourse(Long id) {
 		enrollmentRepository.setCourseIdNullByCourseId(id);

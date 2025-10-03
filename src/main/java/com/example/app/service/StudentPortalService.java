@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -104,8 +103,9 @@ public class StudentPortalService {
 
 		logger.info("Filtering schedule by semesterId: {}", targetSemesterId);
 
-		// Lấy danh sách enrollment của sinh viên
-		List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId);
+		// Lấy danh sách enrollment chính thức (ENROLLED) của sinh viên
+		List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId).stream()
+				.filter(e -> "ENROLLED".equals(e.getStatus())).collect(Collectors.toList());
 
 		// Chuyển đổi thành schedule items, chỉ lấy courses thuộc semester được chọn
 		List<StudentPortalInfo.ScheduleItem> scheduleItems = enrollments.stream().map(enrollment -> {
@@ -200,7 +200,7 @@ public class StudentPortalService {
 		int completedCredits = gradeItems.stream().filter(item -> item.getGrade() != null)
 				.mapToInt(StudentPortalInfo.GradeItem::getCredit).sum();
 
-		double gpa = 3.0; // Mock GPA - sẽ implement sau
+		double gpa = 0; // Mock GPA - sẽ implement sau
 
 		// Tính statistics
 		int totalCourses = gradeItems.size();
@@ -210,101 +210,6 @@ public class StudentPortalService {
 
 		return new StudentPortalInfo.StudentGradesInfo(studentId, student.getStudentCode(), user.getFullName(), gpa,
 				totalCredits, completedCredits, gradeItems, totalCourses, completedCourses, inProgressCourses);
-	}
-
-	/**
-	 * Lấy danh sách môn học có thể đăng ký (chỉ của kỳ mới nhất) Logic: Lọc courses
-	 * theo semesterId mới nhất từ bảng courses và có teaching SemesterId mới nhất
-	 * được xác định bằng semesterId cao nhất trong bảng courses
-	 */
-	public List<StudentPortalInfo.AvailableCourseInfo> getAvailableCourses(Long studentId, String semester) {
-		logger.info("Getting available courses for student ID: {} in semester: {}", studentId, semester);
-		logger.info("Note: Only courses from latest semester will be shown");
-
-		// Student student = getStudentById(studentId);
-
-		// Xác định semesterId mới nhất để lọc
-		Long latestSemesterId = getLatestSemesterId();
-		String latestSemester = getSemesterStringById(latestSemesterId);
-		logger.info("Using latest semesterId: {} ({})", latestSemesterId, latestSemester);
-
-		// Lấy tất cả teachings để xác định courses nào có teaching
-		List<Teaching> allTeachings = teachingRepository.findAll();
-		Set<Long> coursesWithTeaching = allTeachings.stream().map(Teaching::getCourseId).collect(Collectors.toSet());
-
-		// Lọc courses theo semesterId mới nhất và có teaching
-		List<Course> availableCourses = courseRepository.findAll().stream()
-				.filter(course -> course.getSemesterId() != null && course.getSemesterId().equals(latestSemesterId)) // Lọc
-																														// theo
-																														// semesterId
-																														// mới
-																														// nhất
-				.filter(course -> coursesWithTeaching.contains(course.getId())) // Chỉ lấy courses có teaching
-				.collect(Collectors.toList());
-
-		// Lấy danh sách đã đăng ký của student
-		List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId);
-		Set<Long> enrolledCourseIds = enrollments.stream().map(Enrollment::getCourseId).collect(Collectors.toSet());
-
-		return availableCourses.stream().map(course -> {
-			// Đếm số lượng đã đăng ký cho course này
-			Long enrolledCount = enrollmentRepository.findAll().stream()
-					.filter(e -> e.getCourseId().equals(course.getId())).count();
-
-			// Sử dụng slot từ course hoặc fallback về 50
-			int maxSlots = course.getSlot() != null ? course.getSlot() : 50;
-			int availableSlots = maxSlots - enrolledCount.intValue();
-
-			// Kiểm tra trạng thái đăng ký
-			boolean isEnrolled = enrolledCourseIds.contains(course.getId());
-			boolean canRegister = !isEnrolled && availableSlots > 0;
-			String reason = "";
-
-			if (isEnrolled) {
-				reason = "Đã đăng ký";
-			} else if (availableSlots <= 0) {
-				canRegister = false;
-				reason = "Hết slot";
-			}
-
-			// Lấy thông tin giảng viên từ teaching
-			String lecturerName = "Chưa phân công";
-			String period = "Chưa xác định";
-			String dayOfWeek = "Chưa xác định";
-			String classroom = "Chưa xác định";
-
-			Teaching teaching = teachingRepository.findAll().stream()
-					.filter(t -> t.getCourseId().equals(course.getId())).findFirst().orElse(null);
-
-			if (teaching != null) {
-				period = teaching.getPeriod() != null ? teaching.getPeriod() : "Chưa xác định";
-				dayOfWeek = teaching.getDayOfWeek() != null ? teaching.getDayOfWeek() : "Chưa xác định";
-				classroom = teaching.getClassRoom() != null ? teaching.getClassRoom() : "Chưa xác định";
-
-				if (teaching.getLecturerId() != null) {
-					Lecturer lecturer = lecturerRepository.findById(teaching.getLecturerId()).orElse(null);
-					if (lecturer != null) {
-						User lecturerUser = userRepository.findById(lecturer.getUserId()).orElse(null);
-						if (lecturerUser != null) {
-							lecturerName = lecturerUser.getFullName();
-						}
-					}
-				}
-			}
-
-			// Kiểm tra có thể hủy đăng ký không (chỉ courses đã đăng ký và chưa có điểm)
-			boolean canUnregister = false;
-			if (isEnrolled) {
-				// Kiểm tra xem enrollment có điểm chưa
-				Enrollment enrollment = enrollments.stream().filter(e -> e.getCourseId().equals(course.getId()))
-						.findFirst().orElse(null);
-				canUnregister = enrollment != null && enrollment.getGrade() == null;
-			}
-
-			return new StudentPortalInfo.AvailableCourseInfo(course.getId(), course.getCourseCode(), course.getName(),
-					course.getCredit(), canRegister, reason, availableSlots, maxSlots, lecturerName, period, dayOfWeek,
-					classroom, latestSemester, canUnregister);
-		}).collect(Collectors.toList());
 	}
 
 	/**
@@ -327,11 +232,9 @@ public class StudentPortalService {
 				return new StudentPortalInfo.CourseRegistrationResponse(false, "Đã đăng ký môn học này rồi");
 			}
 
-			// Tạo enrollment mới
-			Enrollment enrollment = new Enrollment();
-			enrollment.setStudentId(studentId);
-			enrollment.setCourseId(courseId);
-			enrollment.setGrade(null);
+			// Tạo enrollment mới với trạng thái PENDING_PAYMENT
+			Enrollment enrollment = new Enrollment(null, studentId, courseId, null, null, null, null, null, null,
+					"PENDING_PAYMENT");
 			enrollmentRepository.save(enrollment);
 
 			return new StudentPortalInfo.CourseRegistrationResponse(true,
@@ -354,12 +257,12 @@ public class StudentPortalService {
 			Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)
 					.orElseThrow(() -> new RuntimeException("Không tìm thấy đăng ký môn học"));
 
-			// Kiểm tra đã có điểm chưa
-			if (enrollment.getGrade() != null) {
-				return new StudentPortalInfo.CourseRegistrationResponse(false, "Không thể hủy môn học đã có điểm");
+			// Kiểm tra trạng thái enrollment
+			if ("ENROLLED".equals(enrollment.getStatus())) {
+				return new StudentPortalInfo.CourseRegistrationResponse(false, "Không thể hủy môn học đã thanh toán");
 			}
 
-			// Xóa enrollment
+			// Xóa enrollment (chỉ cho phép với trạng thái PENDING_PAYMENT)
 			enrollmentRepository.delete(enrollment);
 
 			Course course = courseRepository.findById(courseId).orElse(null);
@@ -538,22 +441,25 @@ public class StudentPortalService {
 				throw new RuntimeException("Không tìm thấy semester: " + semester);
 			}
 
-			// Lấy danh sách enrollments của sinh viên trong semester này
-			List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(studentId, semester);
+			// Lấy danh sách enrollments (bao gồm cả PENDING_PAYMENT và ENROLLED) của sinh
+			// viên trong semester này
+			List<Enrollment> enrolledCourses = enrollmentRepository.findByStudentIdAndSemester(studentId, semester)
+					.stream().filter(e -> "PENDING_PAYMENT".equals(e.getStatus()) || "ENROLLED".equals(e.getStatus()))
+					.collect(Collectors.toList());
 
 			// Tính tổng số tiền phải đóng từ các môn học đã đăng ký
-			BigDecimal totalAmount = BigDecimal.ZERO;
+			BigDecimal totalAmount = enrolledCourses.stream()
+					.map(e -> courseRepository.findById(e.getCourseId()).map(Course::getFee).orElse(BigDecimal.ZERO))
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
 			List<StudentPortalInfo.CoursePaymentDetail> courseDetails = new ArrayList<>();
 
-			for (Enrollment enrollment : enrollments) {
+			for (Enrollment enrollment : enrolledCourses) {
 				Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
 				if (course != null) {
-					totalAmount = totalAmount.add(course.getFee());
-
 					// Tạo course payment detail
 					StudentPortalInfo.CoursePaymentDetail detail = new StudentPortalInfo.CoursePaymentDetail(
 							course.getId(), course.getCourseCode(), course.getName(), course.getCredit(),
-							course.getFee(), "ENROLLED" // Status của enrollment
+							course.getFee(), enrollment.getStatus() // Sử dụng trạng thái thực tế của enrollment
 					);
 					courseDetails.add(detail);
 				}
@@ -653,6 +559,79 @@ public class StudentPortalService {
 	}
 
 	/**
+	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi thanh
+	 * toán thành công
+	 */
+	/**
+	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi thanh
+	 * toán thành công và trừ slot trong course
+	 */
+	/**
+	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi tạo yêu cầu thanh toán
+	 * toán thành công và trừ slot trong course
+	 */
+	public void updateEnrollmentStatusToEnrolled(Long studentId, String semester) {
+		try {
+			logger.info("Updating enrollment status to ENROLLED for student ID: {} in semester: {}", studentId,
+					semester);
+
+			// Lấy kỳ học từ database
+			Semester semesterObj = getSemesterBySemesterString(semester);
+			if (semesterObj == null) {
+				logger.warn("Semester not found: {}", semester);
+				return;
+			}
+
+			// Lấy tất cả enrollment của sinh viên trong kỳ học này có trạng thái
+			// PENDING_PAYMENT
+			List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId).stream()
+					.filter(e -> e.getCourseId() != null).filter(e -> "PENDING_PAYMENT".equals(e.getStatus()))
+					.filter(e -> {
+						Course course = courseRepository.findById(e.getCourseId()).orElse(null);
+						return course != null && semester
+								.equals(course.getSemesterId() != null
+										? semesterRepository.findById(course.getSemesterId()).map(Semester::getSemester)
+												.orElse("")
+										: "");
+					}).collect(Collectors.toList());
+
+			logger.info("Found {} PENDING_PAYMENT enrollments for student ID: {} in semester: {}", enrollments.size(),
+					studentId, semester);
+
+			if (enrollments.isEmpty()) {
+				logger.warn("No PENDING_PAYMENT enrollments found for student ID: {} in semester: {}", studentId,
+						semester);
+				return;
+			}
+
+			// Cập nhật trạng thái thành ENROLLED và trừ slot
+			for (Enrollment enrollment : enrollments) {
+				logger.info("Updating enrollment ID: {} from PENDING_PAYMENT to ENROLLED", enrollment.getId());
+				enrollment.setStatus("ENROLLED");
+				enrollmentRepository.save(enrollment);
+
+				// Trừ slot trong course
+				Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+				if (course != null && course.getSlot() != null && course.getSlot() > 0) {
+					int oldSlot = course.getSlot();
+					course.setSlot(course.getSlot() - 1);
+					courseRepository.save(course);
+					logger.info("Reduced slot for course ID: {} from {} to {}", course.getId(), oldSlot,
+							course.getSlot());
+				}
+			}
+
+			logger.info(
+					"Successfully updated {} enrollments to ENROLLED status and reduced course slots for student ID: {} in semester: {}",
+					enrollments.size(), studentId, semester);
+
+		} catch (Exception e) {
+			logger.error("Error updating enrollment status to ENROLLED for student ID: {} in semester: {}", studentId,
+					semester, e);
+		}
+	}
+
+	/**
 	 * Helper method để lấy Semester entity từ semester string
 	 */
 	private Semester getSemesterBySemesterString(String semester) {
@@ -699,6 +678,157 @@ public class StudentPortalService {
 	}
 
 	/**
+	 * Tạo yêu cầu thanh toán học phí cho sinh viên
+	 */
+	public String createPaymentRequest(Long studentId, String semester) {
+		try {
+			logger.info("Creating payment request for student ID: {} in semester: {}", studentId, semester);
+
+			// Kiểm tra xem kỳ học có tồn tại không
+			Semester semesterObj = getSemesterBySemesterString(semester);
+			if (semesterObj == null) {
+				throw new RuntimeException("Không tìm thấy kỳ học: " + semester);
+			}
+
+			// Lấy danh sách enrollment của sinh viên trong kỳ học này
+			List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId).stream()
+					.filter(e -> e.getCourseId() != null).filter(e -> {
+						Course course = courseRepository.findById(e.getCourseId()).orElse(null);
+						return course != null && semester
+								.equals(course.getSemesterId() != null
+										? semesterRepository.findById(course.getSemesterId()).map(Semester::getSemester)
+												.orElse("")
+										: "");
+					}).collect(Collectors.toList());
+
+			if (enrollments.isEmpty()) {
+				throw new RuntimeException("Sinh viên chưa đăng ký môn học nào trong kỳ này");
+			}
+
+			// Kiểm tra xem đã có payment cho kỳ này chưa
+			Payment existingPayment = paymentRepository.findByStudentIdAndSemesterId(studentId, semesterObj.getId())
+					.orElse(null);
+
+			if (existingPayment != null) {
+				if (existingPayment.getStatus() == Status.PAID) {
+					// Payment đã tồn tại và đã thanh toán rồi
+					return "Đã thanh toán học phí cho kỳ này";
+				} else {
+					// Cập nhật trạng thái thành PAID và cập nhật enrollment
+					existingPayment.setStatus(Status.PAID);
+					existingPayment.setPaymentDate(LocalDateTime.now());
+					paymentRepository.save(existingPayment);
+
+					// Cập nhật trạng thái enrollment và trừ slot
+					updateEnrollmentStatusToEnrolled(studentId, semester);
+					return "Đã cập nhật thanh toán cho kỳ: " + semester;
+				}
+			} else {
+				// Tính tổng học phí dựa trên trường fee của course
+				double totalAmount = enrollments.stream().mapToDouble(e -> {
+					try {
+						Course course = courseRepository.findById(e.getCourseId()).orElse(null);
+						if (course != null && course.getFee() != null) {
+							return course.getFee().doubleValue(); // Sử dụng học phí đã định nghĩa trong course
+						}
+						return 0.0;
+					} catch (Exception ex) {
+						logger.warn("Error calculating fee for enrollment ID: {}, course ID: {}", e.getId(),
+								e.getCourseId(), ex);
+						return 0.0;
+					}
+				}).sum();
+
+				if (totalAmount <= 0) {
+					throw new RuntimeException("Không thể tính học phí cho kỳ này");
+				}
+
+				// Tạo payment mới với trạng thái PAID (đã thanh toán)
+				Payment newPayment = new Payment();
+				newPayment.setStudentId(studentId);
+				newPayment.setSemesterId(semesterObj.getId());
+				newPayment.setAmount(totalAmount);
+				newPayment.setStatus(Status.PAID); // Đặt trạng thái là PAID ngay khi tạo
+				newPayment.setPaymentDate(LocalDateTime.now());
+				newPayment.setDescription("Học phí kỳ " + semester + " - " + enrollments.size() + " môn học");
+
+				paymentRepository.save(newPayment);
+
+				logger.info("Created payment request for student ID: {} in semester: {} with amount: {}", studentId,
+						semester, totalAmount);
+
+				// Cập nhật trạng thái enrollment và trừ slot ngay khi tạo payment
+				updateEnrollmentStatusToEnrolled(studentId, semester);
+
+				return "Đã tạo yêu cầu thanh toán và cập nhật trạng thái thành công cho kỳ: " + semester + " - Tổng tiền: "
+						+ String.format("%,.0f", totalAmount) + " VND";
+			}
+
+		} catch (Exception e) {
+			logger.error("Error creating payment request for student ID: {} in semester: {}", studentId, semester, e);
+			throw new RuntimeException("Lỗi khi tạo yêu cầu thanh toán: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Lấy danh sách khóa học có thể đăng ký theo kỳ học (để tương thích với
+	 * frontend)
+	 */
+	public List<StudentPortalInfo.AvailableCourseInfo> getAvailableCourses(Long studentId, String semester) {
+		try {
+			logger.info("Getting available courses for student ID: {} in semester: {}", studentId, semester);
+
+			// Lấy kỳ học từ database
+			Semester semesterObj = getSemesterBySemesterString(semester);
+			if (semesterObj == null) {
+				logger.warn("Semester not found: {}", semester);
+				return new ArrayList<>();
+			}
+
+			// Lấy tất cả khóa học của kỳ học
+			List<Course> courses = courseRepository.findBySemesterId(semesterObj.getId());
+
+			// Convert sang AvailableCourseInfo DTO
+			return courses.stream().map(course -> {
+				StudentPortalInfo.AvailableCourseInfo courseInfo = new StudentPortalInfo.AvailableCourseInfo();
+				courseInfo.setCourseId(course.getId());
+				courseInfo.setCourseCode(course.getCourseCode());
+				courseInfo.setCourseName(course.getName());
+				courseInfo.setCredit(course.getCredit());
+				courseInfo.setCanRegister(true); // Mặc định có thể đăng ký
+				courseInfo.setSemester(semester);
+				courseInfo.setCanUnregister(false); // Mặc định không thể hủy đăng ký
+				courseInfo.setAvailableSlots(course.getSlot()); // Sử dụng slot làm available slots
+				courseInfo.setMaxSlots(course.getSlot()); // Tương tự
+
+				// Lấy thông tin giảng viên nếu có
+				List<Teaching> teachings = teachingRepository.findByCourseId(course.getId());
+				if (!teachings.isEmpty()) {
+					Teaching teaching = teachings.get(0);
+					if (teaching.getLecturerId() != null) {
+						Lecturer lecturer = lecturerRepository.findById(teaching.getLecturerId()).orElse(null);
+						if (lecturer != null) {
+							User lecturerUser = userRepository.findById(lecturer.getUserId()).orElse(null);
+							if (lecturerUser != null) {
+								courseInfo.setLecturerName(lecturerUser.getFullName());
+							}
+						}
+					}
+					courseInfo.setPeriod(teaching.getPeriod());
+					courseInfo.setDayOfWeek(teaching.getDayOfWeek());
+					courseInfo.setClassroom(teaching.getClassRoom());
+				}
+
+				return courseInfo;
+			}).collect(Collectors.toList());
+
+		} catch (Exception e) {
+			logger.error("Error getting available courses for student ID: {} in semester: {}", studentId, semester, e);
+			return new ArrayList<>();
+		}
+	}
+
+	/**
 	 * Helper method để escape CSV values
 	 */
 	private String escapeCSV(String value) {
@@ -709,5 +839,4 @@ public class StudentPortalService {
 		}
 		return value;
 	}
-
 }

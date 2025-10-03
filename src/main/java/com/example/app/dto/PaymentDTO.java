@@ -8,11 +8,22 @@ public class PaymentDTO {
 	private Long id;
 	private Long studentId;
 	private Long semesterId;
+	private double amount;
+	private String description;
 	private LocalDateTime paymentDate;
 	private Status status;
 
 	// Constructors
 	public PaymentDTO() {
+	}
+
+	public PaymentDTO(Long id, Long studentId, Long semesterId, double amount, String description, LocalDateTime paymentDate, Status status) {
+		this.id = id;
+		this.studentId = studentId;
+		this.semesterId = semesterId;
+		this.amount = amount;
+		this.description = description;
+		this.paymentDate = paymentDate;
 	}
 
 	public PaymentDTO(Long id, Long studentId, Long semesterId, LocalDateTime paymentDate, Status status) {
@@ -62,5 +73,21 @@ public class PaymentDTO {
 
 	public void setStatus(Status status) {
 		this.status = status;
+	}
+
+	public double getAmount() {
+		return amount;
+	}
+
+	public void setAmount(double amount) {
+		this.amount = amount;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
 	}
 }

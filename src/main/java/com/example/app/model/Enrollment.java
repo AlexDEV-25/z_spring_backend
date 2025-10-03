@@ -29,7 +29,6 @@ public class Enrollment {
 	@Column(name = "component_score_2")
 	private Double componentScore2;
 
-	@Column(name = "final_exam_score")
 	private Double finalExamScore;
 
 	@Column(name = "total_score")
@@ -38,8 +37,11 @@ public class Enrollment {
 	@Column(name = "score_coefficient_4")
 	private Double scoreCoefficient4;
 
+	@Column(name = "status", nullable = false)
+	private String status = "PENDING_PAYMENT"; // PENDING_PAYMENT or ENROLLED
+
 	public Enrollment(Long id, Long studentId, Long courseId, String grade, Double componentScore1,
-			Double componentScore2, Double finalExamScore, Double totalScore, Double scoreCoefficient4) {
+			Double componentScore2, Double finalExamScore, Double totalScore, Double scoreCoefficient4, String status) {
 		this.id = id;
 		this.studentId = studentId;
 		this.courseId = courseId;
@@ -49,9 +51,12 @@ public class Enrollment {
 		this.finalExamScore = finalExamScore;
 		this.totalScore = totalScore;
 		this.scoreCoefficient4 = scoreCoefficient4;
+		this.status = status != null ? status : "PENDING_PAYMENT";
 	}
 
+	// Default constructor for JPA/Hibernate
 	public Enrollment() {
+		this.status = "PENDING_PAYMENT";
 	}
 
 	public Long getId() {
@@ -124,5 +129,13 @@ public class Enrollment {
 
 	public void setScoreCoefficient4(Double scoreCoefficient4) {
 		this.scoreCoefficient4 = scoreCoefficient4;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
 	}
 }

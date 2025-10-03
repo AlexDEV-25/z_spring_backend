@@ -1,26 +1,31 @@
 package com.example.app.controller;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 
 import com.example.app.dto.StudentDTO;
 import com.example.app.dto.StudentPortalInfo;
+import com.example.app.enumvalue.Status;
+import com.example.app.model.Payment;
+import com.example.app.model.Semester;
+import com.example.app.repository.PaymentRepository;
+import com.example.app.repository.SemesterRepository;
 import com.example.app.service.StudentPortalService;
 import com.example.app.service.StudentService;
 
@@ -38,10 +43,15 @@ public class StudentPortalController {
 
 	private final StudentService studentService;
 	private final StudentPortalService studentPortalService;
+	private final SemesterRepository semesterRepository;
+	private final PaymentRepository paymentRepository;
 
-	public StudentPortalController(StudentService studentService, StudentPortalService studentPortalService) {
+	public StudentPortalController(StudentService studentService, StudentPortalService studentPortalService,
+			SemesterRepository semesterRepository, PaymentRepository paymentRepository) {
 		this.studentService = studentService;
 		this.studentPortalService = studentPortalService;
+		this.semesterRepository = semesterRepository;
+		this.paymentRepository = paymentRepository;
 	}
 
 	/**
@@ -121,25 +131,6 @@ public class StudentPortalController {
 	}
 
 	/**
-	 * Hủy đăng ký môn học
-	 */
-	@DeleteMapping("/courses/{courseId}")
-	public ResponseEntity<StudentPortalInfo.CourseRegistrationResponse> unregisterCourse(@PathVariable Long courseId) {
-		try {
-			Long studentId = getCurrentStudentId();
-			logger.info("Unregistering course {} for student ID: {}", courseId, studentId);
-
-			StudentPortalInfo.CourseRegistrationResponse response = studentPortalService.unregisterCourse(studentId,
-					courseId);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			logger.error("Error unregistering course: ", e);
-			return ResponseEntity.badRequest().body(new StudentPortalInfo.CourseRegistrationResponse(false,
-					"Lỗi hủy đăng ký môn học: " + e.getMessage()));
-		}
-	}
-
-	/**
 	 * Lấy danh sách tất cả semesters từ database
 	 */
 	@GetMapping("/semesters")
@@ -155,61 +146,11 @@ public class StudentPortalController {
 	}
 
 	/**
-	 * Lấy semester mới nhất đang được sử dụng
-	 */
-	@GetMapping("/latest-semester")
-	public ResponseEntity<String> getLatestSemester() {
-		try {
-			// Lấy semester mới nhất từ service (sẽ tự động lấy từ database)
-			String latestSemester = studentPortalService.getLatestSemesterInfo();
-			logger.info("Latest semester: {}", latestSemester);
-			return ResponseEntity.ok(latestSemester);
-		} catch (Exception e) {
-			logger.error("Error getting latest semester: ", e);
-			return ResponseEntity.badRequest().build();
-		}
-	}
-
-	/**
-	 * Lấy thông tin cá nhân của sinh viên
-	 */
-	@GetMapping("/profile")
-	public ResponseEntity<StudentPortalInfo.StudentProfile> getProfile() {
-		try {
-			Long studentId = getCurrentStudentId();
-			logger.info("Getting profile for student ID: {}", studentId);
-
-			StudentPortalInfo.StudentProfile profile = studentPortalService.getStudentProfile(studentId);
-			return ResponseEntity.ok(profile);
-		} catch (Exception e) {
-			logger.error("Error getting student profile", e);
-			return ResponseEntity.internalServerError().build();
-		}
-	}
-
-	/**
-	 * Thay đổi mật khẩu cho sinh viên
-	 */
-	@PostMapping("/change-password")
-	public ResponseEntity<StudentPortalInfo.ChangePasswordResponse> changePassword(
-			@Valid @RequestBody StudentPortalInfo.ChangePasswordRequest request) {
-		try {
-			Long studentId = getCurrentStudentId();
-			logger.info("Changing password for student ID: {}", studentId);
-
-			StudentPortalInfo.ChangePasswordResponse response = studentPortalService.changePassword(studentId, request);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			logger.error("Error changing password", e);
-			return ResponseEntity.ok(new StudentPortalInfo.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage()));
-		}
-	}
-
-	/**
 	 * Lấy thông tin thanh toán học phí theo semester
 	 */
 	@GetMapping("/payment")
-	public ResponseEntity<StudentPortalInfo.PaymentInfo> getPaymentInfo(@RequestParam(required = false) String semester) {
+	public ResponseEntity<StudentPortalInfo.PaymentInfo> getPaymentInfo(
+			@RequestParam(required = false) String semester) {
 		try {
 			Long studentId = getCurrentStudentId();
 			logger.info("Getting payment info for student ID: {} in semester: {}", studentId, semester);
@@ -228,19 +169,59 @@ public class StudentPortalController {
 	}
 
 	/**
-	 * Lấy thông tin thanh toán học phí của tất cả các semester
+	 * Cập nhật trạng thái thanh toán thành công
 	 */
-	@GetMapping("/payment/all")
-	public ResponseEntity<List<StudentPortalInfo.PaymentInfo>> getAllPaymentInfo() {
+	@PostMapping("/payment/confirm")
+	public ResponseEntity<String> confirmPayment(@RequestParam String semester) {
 		try {
 			Long studentId = getCurrentStudentId();
-			logger.info("Getting all payment info for student ID: {}", studentId);
+			logger.info("Confirming payment for student ID: {} in semester: {}", studentId, semester);
 
-			List<StudentPortalInfo.PaymentInfo> paymentInfos = studentPortalService.getAllPaymentInfo(studentId);
-			return ResponseEntity.ok(paymentInfos);
+			// Tìm payment hiện có
+			Semester semesterObj = semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
+					.findFirst().orElseThrow(() -> new RuntimeException("Không tìm thấy kỳ học: " + semester));
+
+			Optional<Payment> paymentOpt = paymentRepository.findByStudentIdAndSemesterId(studentId,
+					semesterObj.getId());
+
+			if (paymentOpt.isPresent()) {
+				Payment payment = paymentOpt.get();
+				payment.setStatus(Status.PAID);
+				payment.setPaymentDate(LocalDateTime.now());
+				paymentRepository.save(payment);
+
+				// Cập nhật trạng thái enrollment và trừ slot
+				studentPortalService.updateEnrollmentStatusToEnrolled(studentId, semester);
+
+				return ResponseEntity.ok("Đã xác nhận thanh toán thành công");
+			} else {
+				return ResponseEntity.badRequest().body("Không tìm thấy yêu cầu thanh toán");
+			}
 		} catch (Exception e) {
-			logger.error("Error getting all payment info", e);
-			return ResponseEntity.internalServerError().build();
+			logger.error("Error confirming payment", e);
+			return ResponseEntity.internalServerError().body("Lỗi khi xác nhận thanh toán: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Tạo yêu cầu thanh toán học phí
+	 */
+	@PostMapping("/payment/create")
+	public ResponseEntity<String> createPaymentRequest(@RequestParam(required = false) String semester) {
+		try {
+			Long studentId = getCurrentStudentId();
+			logger.info("Creating payment request for student ID: {} in semester: {}", studentId, semester);
+
+			// Nếu không có semester, lấy semester mới nhất
+			if (semester == null || semester.trim().isEmpty()) {
+				semester = studentPortalService.getLatestSemesterInfo();
+			}
+
+			String result = studentPortalService.createPaymentRequest(studentId, semester);
+			return ResponseEntity.ok(result);
+		} catch (Exception e) {
+			logger.error("Error creating payment request", e);
+			return ResponseEntity.internalServerError().body("Lỗi khi tạo yêu cầu thanh toán: " + e.getMessage());
 		}
 	}
 
@@ -254,14 +235,12 @@ public class StudentPortalController {
 			logger.info("Exporting grades for student ID: {} in semester: {}", studentId, semester);
 
 			byte[] csvData = studentPortalService.exportGradesToCsv(studentId, semester);
-			
+
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
 			headers.setContentDispositionFormData("attachment", "bang_diem.csv");
-			
-			return ResponseEntity.ok()
-					.headers(headers)
-					.body(csvData);
+
+			return ResponseEntity.ok().headers(headers).body(csvData);
 		} catch (Exception e) {
 			logger.error("Error exporting grades", e);
 			return ResponseEntity.internalServerError().build();
