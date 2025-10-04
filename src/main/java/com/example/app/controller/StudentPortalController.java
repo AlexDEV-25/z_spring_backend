@@ -225,6 +225,20 @@ public class StudentPortalController {
 		}
 	}
 
+	@GetMapping("/profile")
+	public ResponseEntity<StudentPortalInfo.StudentProfileInfo> getMyProfile() {
+		try {
+			Long studentId = getCurrentStudentId();
+			logger.info("Getting profile for student ID: {}", studentId);
+
+			StudentPortalInfo.StudentProfileInfo profile = studentPortalService.getStudentProfile(studentId);
+			return ResponseEntity.ok(profile);
+		} catch (Exception e) {
+			logger.error("Error getting student profile", e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
 	/**
 	 * Xuất bảng điểm ra file CSV
 	 */

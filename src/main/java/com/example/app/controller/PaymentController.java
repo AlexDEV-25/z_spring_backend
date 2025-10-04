@@ -122,11 +122,11 @@ public class PaymentController {
 
 	// Xuất danh sách payments ra file CSV
 	@GetMapping("/export")
-	public ResponseEntity<byte[]> exportPayments(@RequestParam(required = false) String semester) {
+	public ResponseEntity<byte[]> exportPayments(@RequestParam(required = false) String status) {
 		try {
-			logger.info("Exporting payments for semester: {}", semester);
+			logger.info("Exporting payments for semester: {} and status: {}", status);
 
-			byte[] csvData = paymentService.exportPaymentsToCsv(semester);
+			byte[] csvData = paymentService.exportPaymentsToCsv(status);
 
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));

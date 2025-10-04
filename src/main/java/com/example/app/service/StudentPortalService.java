@@ -17,6 +17,7 @@ import com.example.app.dto.StudentPortalInfo;
 import com.example.app.enumvalue.Status;
 import com.example.app.model.ClassEntity;
 import com.example.app.model.Course;
+import com.example.app.model.Department;
 import com.example.app.model.Enrollment;
 import com.example.app.model.Lecturer;
 import com.example.app.model.Payment;
@@ -26,6 +27,7 @@ import com.example.app.model.Teaching;
 import com.example.app.model.User;
 import com.example.app.repository.ClassRepository;
 import com.example.app.repository.CourseRepository;
+import com.example.app.repository.DepartmentRepository;
 import com.example.app.repository.EnrollmentRepository;
 import com.example.app.repository.LecturerRepository;
 import com.example.app.repository.PaymentRepository;
@@ -44,6 +46,7 @@ public class StudentPortalService {
 
 	private final StudentRepository studentRepository;
 	private final UserRepository userRepository;
+
 	private final EnrollmentRepository enrollmentRepository;
 	private final CourseRepository courseRepository;
 	private final TeachingRepository teachingRepository;
@@ -53,12 +56,13 @@ public class StudentPortalService {
 	private final PaymentRepository paymentRepository;
 	private final BCryptPasswordEncoder passwordEncoder;
 	private final GradeCalculationService gradeCalculationService;
+	private final DepartmentRepository departmentRepository;
 
 	public StudentPortalService(StudentRepository studentRepository, UserRepository userRepository,
 			EnrollmentRepository enrollmentRepository, CourseRepository courseRepository,
 			TeachingRepository teachingRepository, LecturerRepository lecturerRepository,
 			ClassRepository classRepository, SemesterRepository semesterRepository, PaymentRepository paymentRepository,
-			GradeCalculationService gradeCalculationService) {
+			GradeCalculationService gradeCalculationService, DepartmentRepository departmentRepository) {
 		this.studentRepository = studentRepository;
 		this.userRepository = userRepository;
 		this.enrollmentRepository = enrollmentRepository;
@@ -70,6 +74,7 @@ public class StudentPortalService {
 		this.paymentRepository = paymentRepository;
 		this.passwordEncoder = new BCryptPasswordEncoder();
 		this.gradeCalculationService = gradeCalculationService;
+		this.departmentRepository = departmentRepository;
 	}
 
 	/**
@@ -103,16 +108,17 @@ public class StudentPortalService {
 
 		logger.info("Filtering schedule by semesterId: {}", targetSemesterId);
 
-		// Lấy danh sách enrollment chính thức (ENROLLED) của sinh viên trong kỳ học hiện tại
+		// Lấy danh sách enrollment chính thức (ENROLLED) của sinh viên trong kỳ học
+		// hiện tại
 		List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId).stream()
-				.filter(e -> "ENROLLED".equals(e.getStatus()))
-				.filter(e -> {
+				.filter(e -> "ENROLLED".equals(e.getStatus())).filter(e -> {
 					Course course = courseRepository.findById(e.getCourseId()).orElse(null);
-					return course != null && course.getSemesterId() != null && course.getSemesterId().equals(targetSemesterId);
-				})
-				.collect(Collectors.toList());
+					return course != null && course.getSemesterId() != null
+							&& course.getSemesterId().equals(targetSemesterId);
+				}).collect(Collectors.toList());
 
-		logger.info("Found {} ENROLLED enrollments for student ID: {} in semester: {}", enrollments.size(), studentId, semester);
+		logger.info("Found {} ENROLLED enrollments for student ID: {} in semester: {}", enrollments.size(), studentId,
+				semester);
 
 		// Chuyển đổi thành schedule items, chỉ lấy courses thuộc semester được chọn
 		List<StudentPortalInfo.ScheduleItem> scheduleItems = enrollments.stream().map(enrollment -> {
@@ -368,7 +374,7 @@ public class StudentPortalService {
 	/**
 	 * Lấy thông tin cá nhân của sinh viên
 	 */
-	public StudentPortalInfo.StudentProfile getStudentProfile(Long studentId) {
+	public StudentPortalInfo.StudentProfileInfo getStudentProfile(Long studentId) {
 		logger.info("Getting profile for student ID: {}", studentId);
 
 		Student student = studentRepository.findById(studentId)
@@ -377,17 +383,20 @@ public class StudentPortalService {
 		User user = userRepository.findById(student.getUserId()).orElseThrow(
 				() -> new RuntimeException("Không tìm thấy thông tin user cho sinh viên ID: " + studentId));
 
-		// Lấy tên lớp
+		Department department = departmentRepository.findById(user.getDepartmentId())
+				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin department"));
+
+		// Lấy tên lớp và niên khóa
 		String className = "Chưa phân lớp";
+		String classYear = "Chưa phân niên khóa";
 		if (student.getClassId() != null) {
 			ClassEntity classEntity = classRepository.findById(student.getClassId()).orElse(null);
-			className = (classEntity != null) ? classEntity.getName() : "Lớp " + student.getClassId();
+			className = (classEntity != null) ? classEntity.getName() : "Lớp chưa có ";
+			classYear = (classEntity != null) ? classEntity.getYear() : "năm chưa có ";
 		}
-
-		return new StudentPortalInfo.StudentProfile(student.getId(), student.getStudentCode(), user.getFullName(),
-				user.getEmail(), user.getPhone(), className, "Công nghệ thông tin", // Default major
-				"2024-2028" // Default academic year
-		);
+		System.out.println(department.getName() + classYear);
+		return new StudentPortalInfo.StudentProfileInfo(student.getId(), student.getStudentCode(), user.getFullName(),
+				user.getEmail(), user.getPhone(), className, department.getName(), classYear);
 	}
 
 	/**
@@ -566,8 +575,8 @@ public class StudentPortalService {
 	}
 
 	/**
-	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi tạo yêu cầu thanh toán
-	 * và trừ slot trong course
+	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi tạo yêu
+	 * cầu thanh toán và trừ slot trong course
 	 */
 	public void updateEnrollmentStatusToEnrolled(Long studentId, String semester) {
 		try {
@@ -713,7 +722,8 @@ public class StudentPortalService {
 					// Payment đã tồn tại và đã thanh toán rồi
 					return "Đã thanh toán học phí cho kỳ này";
 				} else if (existingPayment.getStatus() == Status.PENDING) {
-					// Payment đã tồn tại và đang chờ thanh toán - kiểm tra enrollment đã được cập nhật chưa
+					// Payment đã tồn tại và đang chờ thanh toán - kiểm tra enrollment đã được cập
+					// nhật chưa
 					// Cập nhật trạng thái enrollment và trừ slot nếu chưa được cập nhật
 					updateEnrollmentStatusToEnrolled(studentId, semester);
 					return "Yêu cầu thanh toán đã được tạo, đã cập nhật trạng thái đăng ký cho kỳ: " + semester;
@@ -752,10 +762,12 @@ public class StudentPortalService {
 
 				paymentRepository.save(newPayment);
 
-				logger.info("Created payment request for student ID: {} in semester: {} with amount: {} (status: PENDING)", studentId,
-						semester, totalAmount);
+				logger.info(
+						"Created payment request for student ID: {} in semester: {} with amount: {} (status: PENDING)",
+						studentId, semester, totalAmount);
 
-				// Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED ngay khi tạo payment
+				// Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED ngay khi tạo
+				// payment
 				// Và trừ slot trong course
 				updateEnrollmentStatusToEnrolled(studentId, semester);
 

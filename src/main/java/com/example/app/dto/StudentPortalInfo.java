@@ -202,8 +202,8 @@ public class StudentPortalInfo {
 		}
 
 		public StudentGradesInfo(Long studentId, String studentCode, String studentName, Double gpa,
-				Integer totalCredits, Integer completedCredits, List<GradeItem> gradeItems,
-				Integer totalCourses, Integer completedCourses, Integer inProgressCourses) {
+				Integer totalCredits, Integer completedCredits, List<GradeItem> gradeItems, Integer totalCourses,
+				Integer completedCourses, Integer inProgressCourses) {
 			this.studentId = studentId;
 			this.studentCode = studentCode;
 			this.studentName = studentName;
@@ -318,7 +318,7 @@ public class StudentPortalInfo {
 		}
 
 		public GradeItem(Long courseId, String courseCode, String courseName, Integer credit, Double componentScore1,
-				Double componentScore2, Double finalExamScore, Double totalScore, Double scoreCoefficient4, 
+				Double componentScore2, Double finalExamScore, Double totalScore, Double scoreCoefficient4,
 				String grade, String semester, String status) {
 			this.courseId = courseId;
 			this.courseCode = courseCode;
@@ -735,30 +735,30 @@ public class StudentPortalInfo {
 	}
 
 	// DTO cho thông tin cá nhân sinh viên
-	public static class StudentProfile {
+	public static class StudentProfileInfo {
 		private Long studentId;
 		private String studentCode;
 		private String fullName;
 		private String email;
 		private String phone;
 		private String className;
-		private String major;
-		private String academicYear;
+		private String departmentName;
+		private String year;
 
 		// Constructors
-		public StudentProfile() {
+		public StudentProfileInfo() {
 		}
 
-		public StudentProfile(Long studentId, String studentCode, String fullName, String email, String phone,
-				String className, String major, String academicYear) {
+		public StudentProfileInfo(Long studentId, String studentCode, String fullName, String email, String phone,
+				String className, String departmentName, String year) {
 			this.studentId = studentId;
 			this.studentCode = studentCode;
 			this.fullName = fullName;
 			this.email = email;
 			this.phone = phone;
 			this.className = className;
-			this.major = major;
-			this.academicYear = academicYear;
+			this.departmentName = departmentName;
+			this.year = year;
 		}
 
 		// Getters and Setters
@@ -810,20 +810,20 @@ public class StudentPortalInfo {
 			this.className = className;
 		}
 
-		public String getMajor() {
-			return major;
+		public String getDepartmentName() {
+			return departmentName;
 		}
 
-		public void setMajor(String major) {
-			this.major = major;
+		public void setDepartmentName(String departmentName) {
+			this.departmentName = departmentName;
 		}
 
-		public String getAcademicYear() {
-			return academicYear;
+		public String getYear() {
+			return year;
 		}
 
-		public void setAcademicYear(String academicYear) {
-			this.academicYear = academicYear;
+		public void setYear(String year) {
+			this.year = year;
 		}
 	}
 

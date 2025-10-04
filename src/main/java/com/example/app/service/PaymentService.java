@@ -113,7 +113,8 @@ public class PaymentService {
 	// Convert DTO -> Entity
 	private Payment convertToEntity(PaymentDTO dto) {
 		Payment payment = new Payment();
-		if (dto.getId() != null) payment.setId(dto.getId());
+		if (dto.getId() != null)
+			payment.setId(dto.getId());
 		payment.setStudentId(dto.getStudentId());
 		payment.setSemesterId(dto.getSemesterId());
 		payment.setAmount(dto.getAmount());
