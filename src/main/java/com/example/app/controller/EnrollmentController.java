@@ -54,13 +54,13 @@ public class EnrollmentController {
 		}
 	}
 
-	// Lấy tất cả sinh viên có GPA >= 3.6 theo khoa và kỳ học để trao học bổng
+	// Lấy tất cả sinh viên có GPA >= 3.6 và số tín chỉ >= 18 theo khoa và kỳ học để trao học bổng
 
 	@GetMapping("/scholarships/eligible-students")
 	public ResponseEntity<List<PrincipalPortalInfo.ScholarshipCandidate>> getStudentsEligibleForScholarship(
 			@RequestParam(required = false) Long departmentId, @RequestParam(required = false) String semester) {
 		try {
-			logger.info("Getting students eligible for scholarship (GPA >= 3.6) - Department: {}, Semester: {}", departmentId, semester);
+			logger.info("Getting students eligible for scholarship (GPA >= 3.6, Credits >= 18) - Department: {}, Semester: {}", departmentId, semester);
 
 			List<PrincipalPortalInfo.ScholarshipCandidate> candidates = enrollmentService
 					.getStudentsEligibleForScholarship(departmentId, semester);

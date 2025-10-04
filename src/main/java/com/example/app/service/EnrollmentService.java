@@ -88,7 +88,7 @@ public class EnrollmentService {
 			Map<Long, PrincipalPortalInfo.StudentGpaInfo> studentGpaMap = calculateStudentGpaForEachStudent(
 					departmentId, semester);
 
-			// B2: convert sang danh sách ScholarshipCandidate
+			// B2: convert sang danh sách ScholarshipCandidate và lọc theo điều kiện học bổng
 			List<PrincipalPortalInfo.ScholarshipCandidate> candidates = getScholarshipCandidatesFromGpaMap(
 					studentGpaMap);
 			printAllStudentScores(departmentId, semester);
@@ -137,8 +137,9 @@ public class EnrollmentService {
 	private List<PrincipalPortalInfo.ScholarshipCandidate> getScholarshipCandidatesFromGpaMap(
 			Map<Long, PrincipalPortalInfo.StudentGpaInfo> studentGpaMap) {
 
-		return studentGpaMap.values().stream().filter(info -> info.getTotalCredits() > 0)
-				.filter(info -> info.getGpa() >= 3.6).map(this::convertToScholarshipCandidate)
+		return studentGpaMap.values().stream()
+				.filter(info -> info.getGpa() >= 3.6 && info.getTotalCredits() >= 18)
+				.map(this::convertToScholarshipCandidate)
 				.sorted(Comparator.comparing(ScholarshipCandidate::getGpa).reversed()).collect(Collectors.toList());
 	}
 
@@ -146,9 +147,12 @@ public class EnrollmentService {
 		String departmentName = getDepartmentName(info.getDepartmentId());
 		String className = getClassName(info.getClassId());
 
+		// Kiểm tra điều kiện học bổng: GPA >= 3.6 và tổng tín chỉ >= 18
+		boolean eligibleForScholarship = info.getGpa() >= 3.6 && info.getTotalCredits() >= 18;
+
 		return new ScholarshipCandidate(info.getStudentId(), info.getStudentCode(), info.getFullName(), className,
 				departmentName, info.getGpa(), info.getTotalCredits(), info.getCompletedCredits(), info.getSemester(),
-				true);
+				eligibleForScholarship);
 	}
 
 	private boolean isValidEnrollment(Enrollment enrollment) {
@@ -192,7 +196,7 @@ public class EnrollmentService {
 			csv.append('\ufeff');
 
 			// Headers
-			csv.append("Hạng,Mã SV,Họ tên,Lớp,Khoa,GPA,Tổng TC,TC hoàn thành,Học kỳ,Đủ điều kiện học bổng\n");
+			csv.append("Hạng,Mã SV,Họ tên,Lớp,Khoa,GPA,Tổng TC,TC hoàn thành,Học kỳ,Đủ điều kiện học bổng (GPA >= 3.6 & TC >= 18)\n");
 
 			// Data rows
 			for (PrincipalPortalInfo.ScholarshipCandidate candidate : candidates) {
@@ -204,7 +208,7 @@ public class EnrollmentService {
 				csv.append(candidate.getTotalCredits()).append(",");
 				csv.append(candidate.getCompletedCredits()).append(",");
 				csv.append(escapeCSV(candidate.getSemester())).append(",");
-				csv.append(candidate.getEligibleForScholarship() ? "Có" : "Không").append("\n");
+				csv.append(candidate.getEligibleForScholarship() ? "Có (GPA >= 3.6 & TC >= 18)" : "Không").append("\n");
 			}
 
 			return csv.toString().getBytes(StandardCharsets.UTF_8);

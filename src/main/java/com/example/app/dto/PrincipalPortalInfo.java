@@ -518,7 +518,7 @@ public class PrincipalPortalInfo {
 
 		// Helper method để kiểm tra điều kiện học bổng
 		public boolean isEligibleForScholarship() {
-			return this.gpa != null && this.gpa >= 3.6;
+			return this.gpa != null && this.gpa >= 3.6 && this.totalCredits != null && this.totalCredits >= 18;
 		}
 	}
 
