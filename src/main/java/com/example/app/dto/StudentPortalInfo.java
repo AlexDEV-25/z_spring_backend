@@ -89,7 +89,6 @@ public class StudentPortalInfo {
 		private String period;
 		private String dayOfWeek;
 		private String lecturerName;
-		private String className;
 		private String room;
 
 		// Constructors
@@ -97,7 +96,7 @@ public class StudentPortalInfo {
 		}
 
 		public ScheduleItem(Long courseId, String courseCode, String courseName, Integer credit, String period,
-				String dayOfWeek, String lecturerName, String className, String room) {
+				String dayOfWeek, String lecturerName, String room) {
 			this.courseId = courseId;
 			this.courseCode = courseCode;
 			this.courseName = courseName;
@@ -105,7 +104,6 @@ public class StudentPortalInfo {
 			this.period = period;
 			this.dayOfWeek = dayOfWeek;
 			this.lecturerName = lecturerName;
-			this.className = className;
 			this.room = room;
 		}
 
@@ -164,14 +162,6 @@ public class StudentPortalInfo {
 
 		public void setLecturerName(String lecturerName) {
 			this.lecturerName = lecturerName;
-		}
-
-		public String getClassName() {
-			return className;
-		}
-
-		public void setClassName(String className) {
-			this.className = className;
 		}
 
 		public String getRoom() {
@@ -692,48 +682,6 @@ public class StudentPortalInfo {
 		}
 	}
 
-	// thông tin semester cho dropdown
-	public static class SemesterInfo {
-		private Long id;
-		private String semester;
-		private String displayName;
-
-		// Constructors
-		public SemesterInfo() {
-		}
-
-		public SemesterInfo(Long id, String semester, String displayName) {
-			this.id = id;
-			this.semester = semester;
-			this.displayName = displayName;
-		}
-
-		// Getters and Setters
-		public Long getId() {
-			return id;
-		}
-
-		public void setId(Long id) {
-			this.id = id;
-		}
-
-		public String getSemester() {
-			return semester;
-		}
-
-		public void setSemester(String semester) {
-			this.semester = semester;
-		}
-
-		public String getDisplayName() {
-			return displayName;
-		}
-
-		public void setDisplayName(String displayName) {
-			this.displayName = displayName;
-		}
-	}
-
 	// DTO cho thông tin cá nhân sinh viên
 	public static class StudentProfileInfo {
 		private Long studentId;
@@ -824,70 +772,6 @@ public class StudentPortalInfo {
 
 		public void setYear(String year) {
 			this.year = year;
-		}
-	}
-
-	// DTO cho yêu cầu thay đổi mật khẩu (không cần mật khẩu hiện tại)
-	public static class ChangePasswordRequest {
-		private String newPassword;
-		private String confirmPassword;
-
-		// Constructors
-		public ChangePasswordRequest() {
-		}
-
-		public ChangePasswordRequest(String newPassword, String confirmPassword) {
-			this.newPassword = newPassword;
-			this.confirmPassword = confirmPassword;
-		}
-
-		// Getters and Setters
-		public String getNewPassword() {
-			return newPassword;
-		}
-
-		public void setNewPassword(String newPassword) {
-			this.newPassword = newPassword;
-		}
-
-		public String getConfirmPassword() {
-			return confirmPassword;
-		}
-
-		public void setConfirmPassword(String confirmPassword) {
-			this.confirmPassword = confirmPassword;
-		}
-	}
-
-	// DTO cho response thay đổi mật khẩu
-	public static class ChangePasswordResponse {
-		private boolean success;
-		private String message;
-
-		// Constructors
-		public ChangePasswordResponse() {
-		}
-
-		public ChangePasswordResponse(boolean success, String message) {
-			this.success = success;
-			this.message = message;
-		}
-
-		// Getters and Setters
-		public boolean isSuccess() {
-			return success;
-		}
-
-		public void setSuccess(boolean success) {
-			this.success = success;
-		}
-
-		public String getMessage() {
-			return message;
-		}
-
-		public void setMessage(String message) {
-			this.message = message;
 		}
 	}
 

@@ -28,6 +28,7 @@ import com.example.app.repository.PaymentRepository;
 import com.example.app.repository.SemesterRepository;
 import com.example.app.service.StudentPortalService;
 import com.example.app.service.StudentService;
+import com.example.app.share.Share;
 
 import jakarta.validation.Valid;
 
@@ -134,9 +135,9 @@ public class StudentPortalController {
 	 * Lấy danh sách tất cả semesters từ database
 	 */
 	@GetMapping("/semesters")
-	public ResponseEntity<List<StudentPortalInfo.SemesterInfo>> getAllSemesters() {
+	public ResponseEntity<List<Share.SemesterInfo>> getAllSemesters() {
 		try {
-			List<StudentPortalInfo.SemesterInfo> semesters = studentPortalService.getAllSemesters();
+			List<Share.SemesterInfo> semesters = studentPortalService.getAllSemesters();
 			logger.info("Retrieved {} semesters", semesters.size());
 			return ResponseEntity.ok(semesters);
 		} catch (Exception e) {
@@ -236,6 +237,24 @@ public class StudentPortalController {
 		} catch (Exception e) {
 			logger.error("Error getting student profile", e);
 			return ResponseEntity.internalServerError().build();
+		}
+	}
+
+	/**
+	 * Thay đổi mật khẩu cho giảng viên
+	 */
+	@PostMapping("/change-password")
+	public ResponseEntity<Share.ChangePasswordResponse> changePassword(
+			@Valid @RequestBody Share.ChangePasswordRequest request) {
+		try {
+			Long StudentId = getCurrentStudentId();
+			logger.info("Changing password for student ID: {}", StudentId);
+
+			Share.ChangePasswordResponse response = studentPortalService.changePassword(StudentId, request);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			logger.error("Error changing password", e);
+			return ResponseEntity.ok(new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage()));
 		}
 	}
 

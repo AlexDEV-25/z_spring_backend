@@ -6,7 +6,9 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,8 +21,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 
 import com.example.app.dto.EnrollmentDTO;
 import com.example.app.dto.TeacherPortalInfo;
@@ -31,6 +31,7 @@ import com.example.app.model.Teaching;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.service.LecturerService;
 import com.example.app.service.TeacherPortalService;
+import com.example.app.share.Share;
 
 import jakarta.validation.Valid;
 
@@ -56,9 +57,9 @@ public class TeacherPortalController {
 	 * Lấy danh sách tất cả semesters từ database
 	 */
 	@GetMapping("/semesters")
-	public ResponseEntity<List<TeacherPortalInfo.SemesterInfo>> getAllSemesters() {
+	public ResponseEntity<List<Share.SemesterInfo>> getAllSemesters() {
 		try {
-			List<TeacherPortalInfo.SemesterInfo> semesters = teacherService.getAllSemesters();
+			List<Share.SemesterInfo> semesters = teacherService.getAllSemesters();
 			logger.info("Retrieved {} semesters for teacher", semesters.size());
 			return ResponseEntity.ok(semesters);
 		} catch (Exception e) {
@@ -182,18 +183,17 @@ public class TeacherPortalController {
 	 * Thay đổi mật khẩu cho giảng viên
 	 */
 	@PostMapping("/change-password")
-	public ResponseEntity<TeacherPortalInfo.ChangePasswordResponse> changePassword(
-			@Valid @RequestBody TeacherPortalInfo.ChangePasswordRequest request) {
+	public ResponseEntity<Share.ChangePasswordResponse> changePassword(
+			@Valid @RequestBody Share.ChangePasswordRequest request) {
 		try {
 			Long lecturerId = getCurrentLecturerId();
 			logger.info("Changing password for lecturer ID: {}", lecturerId);
 
-			TeacherPortalInfo.ChangePasswordResponse response = teacherService.changePassword(lecturerId, request);
+			Share.ChangePasswordResponse response = teacherService.changePassword(lecturerId, request);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			logger.error("Error changing password", e);
-			return ResponseEntity
-					.ok(new TeacherPortalInfo.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage()));
+			return ResponseEntity.ok(new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage()));
 		}
 	}
 
@@ -207,14 +207,12 @@ public class TeacherPortalController {
 			logger.info("Exporting grades for teaching ID: {} by lecturer: {}", teachingId, lecturerId);
 
 			byte[] csvData = teacherService.exportClassGradesToCsv(teachingId, lecturerId);
-			
+
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
 			headers.setContentDispositionFormData("attachment", "bang_diem_lop.csv");
-			
-			return ResponseEntity.ok()
-					.headers(headers)
-					.body(csvData);
+
+			return ResponseEntity.ok().headers(headers).body(csvData);
 		} catch (Exception e) {
 			logger.error("Error exporting class grades", e);
 			return ResponseEntity.internalServerError().build();

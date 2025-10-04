@@ -31,6 +31,7 @@ import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
+import com.example.app.share.Share;
 
 @Service
 @Transactional
@@ -262,12 +263,12 @@ public class TeacherPortalService {
 	/**
 	 * Lấy danh sách tất cả semesters từ database (để Controller có thể gọi)
 	 */
-	public List<TeacherPortalInfo.SemesterInfo> getAllSemesters() {
+	public List<Share.SemesterInfo> getAllSemesters() {
 		logger.info("Getting all semesters from database for teacher");
 
 		return semesterRepository.findAll().stream().map(semester -> {
 			String displayName = generateDisplayName(semester.getSemester());
-			return new TeacherPortalInfo.SemesterInfo(semester.getId(), semester.getSemester(), displayName);
+			return new Share.SemesterInfo(semester.getId(), semester.getSemester(), displayName);
 		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
 				.collect(ArrayList::new, (list, item) -> list.add(item), (list1, list2) -> list1.addAll(list2));
 	}
@@ -327,22 +328,21 @@ public class TeacherPortalService {
 	/**
 	 * Thay đổi mật khẩu cho giảng viên (không cần mật khẩu hiện tại)
 	 */
-	public TeacherPortalInfo.ChangePasswordResponse changePassword(Long lecturerId,
-			TeacherPortalInfo.ChangePasswordRequest request) {
+	public Share.ChangePasswordResponse changePassword(Long lecturerId, Share.ChangePasswordRequest request) {
 		logger.info("Changing password for lecturer ID: {}", lecturerId);
 
 		try {
 			// Validate input - chỉ cần mật khẩu mới
 			if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
-				return new TeacherPortalInfo.ChangePasswordResponse(false, "Mật khẩu mới không được để trống");
+				return new Share.ChangePasswordResponse(false, "Mật khẩu mới không được để trống");
 			}
 
 			if (request.getNewPassword().length() < 6) {
-				return new TeacherPortalInfo.ChangePasswordResponse(false, "Mật khẩu mới phải có ít nhất 6 ký tự");
+				return new Share.ChangePasswordResponse(false, "Mật khẩu mới phải có ít nhất 6 ký tự");
 			}
 
 			if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-				return new TeacherPortalInfo.ChangePasswordResponse(false, "Xác nhận mật khẩu không khớp");
+				return new Share.ChangePasswordResponse(false, "Xác nhận mật khẩu không khớp");
 			}
 
 			// Get lecturer and user
@@ -360,11 +360,11 @@ public class TeacherPortalService {
 			userRepository.save(user);
 
 			logger.info("Password changed successfully for lecturer ID: {}", lecturerId);
-			return new TeacherPortalInfo.ChangePasswordResponse(true, "Đổi mật khẩu thành công");
+			return new Share.ChangePasswordResponse(true, "Đổi mật khẩu thành công");
 
 		} catch (Exception e) {
 			logger.error("Error changing password for lecturer ID: {}", lecturerId, e);
-			return new TeacherPortalInfo.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage());
+			return new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage());
 		}
 	}
 

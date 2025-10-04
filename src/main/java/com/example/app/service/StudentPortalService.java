@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,7 @@ import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
+import com.example.app.share.Share;
 
 /**
  * Student Portal Service
@@ -77,81 +79,68 @@ public class StudentPortalService {
 		this.departmentRepository = departmentRepository;
 	}
 
-	/**
-	 * Lấy thời khóa biểu của sinh viên(course và teaching đã tồn tại)
-	 */
+	/* Hàm lấy semesterId mục tiêu truyền từ FE */
+	private Long resolveTargetSemesterId(String semester) {
+		if (semester != null && !semester.trim().isEmpty()) {
+			// Tìm semesterId tương ứng với chuỗi semester truyền vào
+			return semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
+					.map(Semester::getId).findFirst().orElse(getLatestSemesterId());
+		}
+		// Nếu không truyền hoặc rỗng, lấy kỳ mới nhất
+		return getLatestSemesterId();
+	}
+
+	/* Hàm lấy danh sách enrollment theo sinh viên + kỳ học */
+	private List<Enrollment> getEnrolledCoursesBySemester(Long studentId, Long semesterId) {
+		return enrollmentRepository.findByStudentId(studentId).stream().filter(e -> "ENROLLED".equals(e.getStatus()))
+				.filter(e -> {
+					Course course = courseRepository.findById(e.getCourseId()).orElse(null);
+					return course != null && semesterId.equals(course.getSemesterId());
+				}).collect(Collectors.toList());
+	}
+
+	/* Hàm chuyển đổi Enrollment → ScheduleItem */
+	private StudentPortalInfo.ScheduleItem convertToScheduleItem(Enrollment enrollment, Long targetSemesterId) {
+		Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+		if (course == null || !targetSemesterId.equals(course.getSemesterId()))
+			return null;
+
+		Teaching teaching = teachingRepository.findAll().stream().filter(t -> course.getId().equals(t.getCourseId()))
+				.findFirst().orElse(null);
+
+		String lecturerName = "Chưa phân công";
+		if (teaching != null) {
+			Lecturer lecturer = lecturerRepository.findById(teaching.getLecturerId()).orElse(null);
+			if (lecturer != null) {
+				User lecturerUser = userRepository.findById(lecturer.getUserId()).orElse(null);
+				if (lecturerUser != null)
+					lecturerName = lecturerUser.getFullName();
+			}
+		}
+
+		return new StudentPortalInfo.ScheduleItem(course.getId(), course.getCourseCode(), course.getName(),
+				course.getCredit(), teaching != null ? teaching.getPeriod() : "1-2",
+				teaching != null ? teaching.getDayOfWeek() : "Thứ 2", lecturerName,
+				teaching != null && teaching.getClassRoom() != null ? teaching.getClassRoom() : "Chưa xác định");
+	}
+
+	/* Hàm chính sau khi tách */
 	public StudentPortalInfo.StudentScheduleInfo getStudentSchedule(Long studentId, String semester) {
 		logger.info("Getting schedule for student ID: {} in semester: {}", studentId, semester);
 
 		Student student = getStudentById(studentId);
 		User user = getUserById(student.getUserId());
 
-		// Lấy class name từ ClassEntity
-		final String className;
-		if (student.getClassId() != null) {
-			ClassEntity classEntity = classRepository.findById(student.getClassId()).orElse(null);
-			className = (classEntity != null) ? classEntity.getName() : "Chưa phân lớp";
-		} else {
-			className = "Chưa phân lớp";
-		}
-
-		// Xác định semesterId để lọc (sử dụng semester được truyền vào hoặc lấy mới
-		// nhất)
-		Long targetSemesterId;
-		if (semester != null && !semester.trim().isEmpty()) {
-			// Tìm semesterId từ semester string
-			targetSemesterId = semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
-					.map(s -> s.getId()).findFirst().orElse(getLatestSemesterId());
-		} else {
-			targetSemesterId = getLatestSemesterId();
-		}
-
+		Long targetSemesterId = resolveTargetSemesterId(semester);
 		logger.info("Filtering schedule by semesterId: {}", targetSemesterId);
 
-		// Lấy danh sách enrollment chính thức (ENROLLED) của sinh viên trong kỳ học
-		// hiện tại
-		List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId).stream()
-				.filter(e -> "ENROLLED".equals(e.getStatus())).filter(e -> {
-					Course course = courseRepository.findById(e.getCourseId()).orElse(null);
-					return course != null && course.getSemesterId() != null
-							&& course.getSemesterId().equals(targetSemesterId);
-				}).collect(Collectors.toList());
-
+		List<Enrollment> enrollments = getEnrolledCoursesBySemester(studentId, targetSemesterId);
 		logger.info("Found {} ENROLLED enrollments for student ID: {} in semester: {}", enrollments.size(), studentId,
 				semester);
 
-		// Chuyển đổi thành schedule items, chỉ lấy courses thuộc semester được chọn
-		List<StudentPortalInfo.ScheduleItem> scheduleItems = enrollments.stream().map(enrollment -> {
-			Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
-			if (course == null)
-				return null;
-
-			// Lọc chỉ lấy courses thuộc semester được chọn
-			if (course.getSemesterId() == null || !course.getSemesterId().equals(targetSemesterId)) {
-				return null;
-			}
-
-			// Tìm teaching info
-			Teaching teaching = teachingRepository.findAll().stream()
-					.filter(t -> t.getCourseId() != null && t.getCourseId().equals(course.getId())).findFirst()
-					.orElse(null);
-			String lecturerName = "Chưa phân công";
-			if (teaching != null) {
-				Lecturer lecturer = lecturerRepository.findById(teaching.getLecturerId()).orElse(null);
-				if (lecturer != null) {
-					User lecturerUser = userRepository.findById(lecturer.getUserId()).orElse(null);
-					if (lecturerUser != null) {
-						lecturerName = lecturerUser.getFullName();
-					}
-				}
-			}
-
-			return new StudentPortalInfo.ScheduleItem(course.getId(), course.getCourseCode(), course.getName(),
-					course.getCredit(), teaching != null ? teaching.getPeriod() : "1-2",
-					teaching != null ? teaching.getDayOfWeek() : "Thứ 2", lecturerName, className,
-					teaching != null ? (teaching.getClassRoom() != null ? teaching.getClassRoom() : "Chưa xác định")
-							: "Chưa xác định");
-		}).filter(item -> item != null).collect(Collectors.toList());
+		List<StudentPortalInfo.ScheduleItem> scheduleItems = enrollments.stream()
+				.map(e -> convertToScheduleItem(e, targetSemesterId)).filter(Objects::nonNull)
+				.collect(Collectors.toList());
 
 		int totalCredits = scheduleItems.stream().mapToInt(StudentPortalInfo.ScheduleItem::getCredit).sum();
 
@@ -260,7 +249,7 @@ public class StudentPortalService {
 	}
 
 	/**
-	 * Hủy đăng ký môn học (chưa viết gia diện, tính sau)
+	 * Hủy đăng ký môn học
 	 */
 	public StudentPortalInfo.CourseRegistrationResponse unregisterCourse(Long studentId, Long courseId) {
 		logger.info("Unregistering course {} for student ID: {}", courseId, studentId);
@@ -289,7 +278,7 @@ public class StudentPortalService {
 		}
 	}
 
-	// Helper methods
+	// lấy thông tin student và user
 	private Student getStudentById(Long studentId) {
 		return studentRepository.findById(studentId)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy sinh viên với ID: " + studentId));
@@ -329,12 +318,12 @@ public class StudentPortalService {
 	/**
 	 * Lấy danh sách tất cả semesters từ database
 	 */
-	public List<StudentPortalInfo.SemesterInfo> getAllSemesters() {
+	public List<Share.SemesterInfo> getAllSemesters() {
 		logger.info("Getting all semesters from database");
 
 		return semesterRepository.findAll().stream().map(semester -> {
 			String displayName = generateDisplayName(semester.getSemester());
-			return new StudentPortalInfo.SemesterInfo(semester.getId(), semester.getSemester(), displayName);
+			return new Share.SemesterInfo(semester.getId(), semester.getSemester(), displayName);
 		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
 				.collect(Collectors.toList());
 	}
@@ -402,22 +391,21 @@ public class StudentPortalService {
 	/**
 	 * Thay đổi mật khẩu cho sinh viên (không cần mật khẩu hiện tại)
 	 */
-	public StudentPortalInfo.ChangePasswordResponse changePassword(Long studentId,
-			StudentPortalInfo.ChangePasswordRequest request) {
+	public Share.ChangePasswordResponse changePassword(Long studentId, Share.ChangePasswordRequest request) {
 		logger.info("Changing password for student ID: {}", studentId);
 
 		try {
 			// Validate input - chỉ cần mật khẩu mới
 			if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
-				return new StudentPortalInfo.ChangePasswordResponse(false, "Mật khẩu mới không được để trống");
+				return new Share.ChangePasswordResponse(false, "Mật khẩu mới không được để trống");
 			}
 
 			if (request.getNewPassword().length() < 6) {
-				return new StudentPortalInfo.ChangePasswordResponse(false, "Mật khẩu mới phải có ít nhất 6 ký tự");
+				return new Share.ChangePasswordResponse(false, "Mật khẩu mới phải có ít nhất 6 ký tự");
 			}
 
 			if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-				return new StudentPortalInfo.ChangePasswordResponse(false, "Xác nhận mật khẩu không khớp");
+				return new Share.ChangePasswordResponse(false, "Xác nhận mật khẩu không khớp");
 			}
 
 			// Get student and user
@@ -435,11 +423,11 @@ public class StudentPortalService {
 			userRepository.save(user);
 
 			logger.info("Password changed successfully for student ID: {}", studentId);
-			return new StudentPortalInfo.ChangePasswordResponse(true, "Đổi mật khẩu thành công");
+			return new Share.ChangePasswordResponse(true, "Đổi mật khẩu thành công");
 
 		} catch (Exception e) {
 			logger.error("Error changing password for student ID: {}", studentId, e);
-			return new StudentPortalInfo.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage());
+			return new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage());
 		}
 	}
 
