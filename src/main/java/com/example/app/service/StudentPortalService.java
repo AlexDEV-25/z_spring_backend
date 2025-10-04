@@ -566,16 +566,8 @@ public class StudentPortalService {
 	}
 
 	/**
-	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi thanh
-	 * toán thành công
-	 */
-	/**
-	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi thanh
-	 * toán thành công và trừ slot trong course
-	 */
-	/**
 	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi tạo yêu cầu thanh toán
-	 * toán thành công và trừ slot trong course
+	 * và trừ slot trong course
 	 */
 	public void updateEnrollmentStatusToEnrolled(Long studentId, String semester) {
 		try {
@@ -720,15 +712,14 @@ public class StudentPortalService {
 				if (existingPayment.getStatus() == Status.PAID) {
 					// Payment đã tồn tại và đã thanh toán rồi
 					return "Đã thanh toán học phí cho kỳ này";
-				} else {
-					// Cập nhật trạng thái thành PAID và cập nhật enrollment
-					existingPayment.setStatus(Status.PAID);
-					existingPayment.setPaymentDate(LocalDateTime.now());
-					paymentRepository.save(existingPayment);
-
-					// Cập nhật trạng thái enrollment và trừ slot
+				} else if (existingPayment.getStatus() == Status.PENDING) {
+					// Payment đã tồn tại và đang chờ thanh toán - kiểm tra enrollment đã được cập nhật chưa
+					// Cập nhật trạng thái enrollment và trừ slot nếu chưa được cập nhật
 					updateEnrollmentStatusToEnrolled(studentId, semester);
-					return "Đã cập nhật thanh toán cho kỳ: " + semester;
+					return "Yêu cầu thanh toán đã được tạo, đã cập nhật trạng thái đăng ký cho kỳ: " + semester;
+				} else {
+					// Payment đã tồn tại nhưng không ở trạng thái hợp lệ
+					return "Có lỗi với trạng thái thanh toán hiện tại cho kỳ: " + semester;
 				}
 			} else {
 				// Tính tổng học phí dựa trên trường fee của course
@@ -750,25 +741,26 @@ public class StudentPortalService {
 					throw new RuntimeException("Không thể tính học phí cho kỳ này");
 				}
 
-				// Tạo payment mới với trạng thái PAID (đã thanh toán)
+				// Tạo payment mới với trạng thái PENDING (chờ thanh toán)
 				Payment newPayment = new Payment();
 				newPayment.setStudentId(studentId);
 				newPayment.setSemesterId(semesterObj.getId());
 				newPayment.setAmount(totalAmount);
-				newPayment.setStatus(Status.PAID); // Đặt trạng thái là PAID ngay khi tạo
+				newPayment.setStatus(Status.PENDING); // Đặt trạng thái là PENDING
 				newPayment.setPaymentDate(LocalDateTime.now());
 				newPayment.setDescription("Học phí kỳ " + semester + " - " + enrollments.size() + " môn học");
 
 				paymentRepository.save(newPayment);
 
-				logger.info("Created payment request for student ID: {} in semester: {} with amount: {}", studentId,
+				logger.info("Created payment request for student ID: {} in semester: {} with amount: {} (status: PENDING)", studentId,
 						semester, totalAmount);
 
-				// Cập nhật trạng thái enrollment và trừ slot ngay khi tạo payment
+				// Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED ngay khi tạo payment
+				// Và trừ slot trong course
 				updateEnrollmentStatusToEnrolled(studentId, semester);
 
-				return "Đã tạo yêu cầu thanh toán và cập nhật trạng thái thành công cho kỳ: " + semester + " - Tổng tiền: "
-						+ String.format("%,.0f", totalAmount) + " VND";
+				return "Đã tạo yêu cầu thanh toán và đăng ký chính thức cho kỳ: " + semester + " - Tổng tiền: "
+						+ String.format("%,.0f", totalAmount) + " VND (trạng thái: chờ thanh toán)";
 			}
 
 		} catch (Exception e) {
