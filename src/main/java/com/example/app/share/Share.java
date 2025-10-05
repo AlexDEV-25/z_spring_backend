@@ -104,4 +104,16 @@ public class Share {
 			this.message = message;
 		}
 	}
+
+	/**
+	 * Helper method để escape CSV values
+	 */
+	public static String escapeCSV(String value) {
+		if (value == null)
+			return "";
+		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+			return "\"" + value.replace("\"", "\"\"") + "\"";
+		}
+		return value;
+	}
 }

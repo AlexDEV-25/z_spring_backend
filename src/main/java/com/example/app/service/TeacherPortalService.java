@@ -113,37 +113,6 @@ public class TeacherPortalService {
 		return teacherClasses;
 	}
 
-	/*
-	 * chưa lọc public List<TeacherClassInfo> getTeacherClasses(Long lecturerId) {
-	 * logger.info("Getting classes for lecturer ID: {}", lecturerId);
-	 * 
-	 * List<Teaching> teachings = teachingRepository.findByLecturerId(lecturerId);
-	 * List<TeacherClassInfo> teacherClasses = new ArrayList<>();
-	 * 
-	 * for (Teaching teaching : teachings) { Optional<Course> courseOpt =
-	 * courseRepository.findById(teaching.getCourseId()); if (courseOpt.isEmpty())
-	 * continue;
-	 * 
-	 * Course course = courseOpt.get();
-	 * 
-	 * // students attached to this course List<StudentInfo> students =
-	 * getStudentsForCourse(teaching.getCourseId());
-	 * 
-	 * Long classId = teaching.getClassId(); String className = null; if (classId !=
-	 * null) { className =
-	 * classRepository.findById(classId).map(ClassEntity::getName) // adjust getter
-	 * if needed .orElse(null); }
-	 * 
-	 * TeacherClassInfo classInfo = new TeacherClassInfo(teaching.getId(),
-	 * course.getId(), course.getCourseCode(), course.getName(), course.getCredit(),
-	 * teaching.getPeriod(), teaching.getDayOfWeek(), teaching.getClassRoom(),
-	 * classId, className, students);
-	 * 
-	 * teacherClasses.add(classInfo); }
-	 * 
-	 * logger.info("Found {} classes for lecturer ID: {}", teacherClasses.size(),
-	 * lecturerId); return teacherClasses; }
-	 */
 	/**
 	 * Lấy danh sách sinh viên trong một lớp học cụ thể (class tồn tại ,student tồn
 	 * tại)
@@ -387,15 +356,15 @@ public class TeacherPortalService {
 			for (int i = 0; i < students.size(); i++) {
 				StudentInfo student = students.get(i);
 				csv.append(i + 1).append(",");
-				csv.append(escapeCSV(student.getStudentCode())).append(",");
-				csv.append(escapeCSV(student.getFullName())).append(",");
-				csv.append(escapeCSV(student.getEmail())).append(",");
+				csv.append(Share.escapeCSV(student.getStudentCode())).append(",");
+				csv.append(Share.escapeCSV(student.getFullName())).append(",");
+				csv.append(Share.escapeCSV(student.getEmail())).append(",");
 				csv.append(student.getComponentScore1() != null ? student.getComponentScore1() : "").append(",");
 				csv.append(student.getComponentScore2() != null ? student.getComponentScore2() : "").append(",");
 				csv.append(student.getFinalExamScore() != null ? student.getFinalExamScore() : "").append(",");
 				csv.append(student.getTotalScore() != null ? student.getTotalScore() : "").append(",");
 				csv.append(student.getScoreCoefficient4() != null ? student.getScoreCoefficient4() : "").append(",");
-				csv.append(escapeCSV(student.getGrade())).append("\n");
+				csv.append(Share.escapeCSV(student.getGrade())).append("\n");
 			}
 
 			return csv.toString().getBytes(StandardCharsets.UTF_8);
@@ -403,17 +372,5 @@ public class TeacherPortalService {
 			logger.error("Error exporting class grades to CSV", e);
 			throw new RuntimeException("Error exporting class grades", e);
 		}
-	}
-
-	/**
-	 * Helper method để escape CSV values
-	 */
-	private String escapeCSV(String value) {
-		if (value == null)
-			return "";
-		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-			return "\"" + value.replace("\"", "\"\"") + "\"";
-		}
-		return value;
 	}
 }

@@ -652,18 +652,19 @@ public class StudentPortalService {
 
 			// Data rows
 			for (StudentPortalInfo.GradeItem item : grades.getGradeItems()) {
-				csv.append(escapeCSV(item.getCourseCode())).append(",");
-				csv.append(escapeCSV(item.getCourseName())).append(",");
+				csv.append(Share.escapeCSV(item.getCourseCode())).append(",");
+				csv.append(Share.escapeCSV(item.getCourseName())).append(",");
 				csv.append(item.getCredit()).append(",");
 				csv.append(item.getComponentScore1() != null ? item.getComponentScore1() : "").append(",");
 				csv.append(item.getComponentScore2() != null ? item.getComponentScore2() : "").append(",");
 				csv.append(item.getFinalExamScore() != null ? item.getFinalExamScore() : "").append(",");
 				csv.append(item.getTotalScore() != null ? item.getTotalScore() : "").append(",");
 				csv.append(item.getScoreCoefficient4() != null ? item.getScoreCoefficient4() : "").append(",");
-				csv.append(escapeCSV(item.getGrade())).append(",");
-				csv.append(escapeCSV(gradeCalculationService.getClassification(item.getTotalScore()))).append(",");
-				csv.append(escapeCSV(item.getStatus())).append(",");
-				csv.append(escapeCSV(item.getSemester())).append("\n");
+				csv.append(Share.escapeCSV(item.getGrade())).append(",");
+				csv.append(Share.escapeCSV(gradeCalculationService.getClassification(item.getTotalScore())))
+						.append(",");
+				csv.append(Share.escapeCSV(item.getStatus())).append(",");
+				csv.append(Share.escapeCSV(item.getSemester())).append("\n");
 			}
 
 			return csv.toString().getBytes(StandardCharsets.UTF_8);
@@ -827,15 +828,4 @@ public class StudentPortalService {
 		}
 	}
 
-	/**
-	 * Helper method để escape CSV values
-	 */
-	private String escapeCSV(String value) {
-		if (value == null)
-			return "";
-		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-			return "\"" + value.replace("\"", "\"\"") + "\"";
-		}
-		return value;
-	}
 }

@@ -29,6 +29,7 @@ import com.example.app.repository.PaymentRepository;
 import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.StudentRepository;
 import com.example.app.repository.UserRepository;
+import com.example.app.share.Share;
 
 @Service
 public class PaymentService {
@@ -330,9 +331,9 @@ public class PaymentService {
 			// Data rows
 			for (PaymentWithDetails payment : payments) {
 				csv.append(payment.getId()).append(",");
-				csv.append(escapeCSV(payment.getStudentCode())).append(",");
-				csv.append(escapeCSV(payment.getSemesterName())).append(",");
-				csv.append(escapeCSV(payment.getStatus().toString())).append(",");
+				csv.append(Share.escapeCSV(payment.getStudentCode())).append(",");
+				csv.append(Share.escapeCSV(payment.getSemesterName())).append(",");
+				csv.append(Share.escapeCSV(payment.getStatus().toString())).append(",");
 				csv.append(payment.getPaymentDate() != null ? payment.getPaymentDate().toString() : "").append("\n");
 			}
 
@@ -341,17 +342,5 @@ public class PaymentService {
 			logger.error("Error exporting payments to CSV", e);
 			throw new RuntimeException("Error exporting payments", e);
 		}
-	}
-
-	/**
-	 * Helper method để escape CSV values
-	 */
-	private String escapeCSV(String value) {
-		if (value == null)
-			return "";
-		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-			return "\"" + value.replace("\"", "\"\"") + "\"";
-		}
-		return value;
 	}
 }
