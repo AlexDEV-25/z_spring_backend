@@ -56,6 +56,21 @@ public class StudentPortalController {
 	}
 
 	/**
+	 * Lấy danh sách tất cả semesters từ database
+	 */
+	@GetMapping("/semesters")
+	public ResponseEntity<List<Share.SemesterInfo>> getAllSemesters() {
+		try {
+			List<Share.SemesterInfo> semesters = studentPortalService.getAllSemesters();
+			logger.info("Retrieved {} semesters", semesters.size());
+			return ResponseEntity.ok(semesters);
+		} catch (Exception e) {
+			logger.error("Error getting semesters: ", e);
+			return ResponseEntity.badRequest().build();
+		}
+	}
+
+	/**
 	 * Lấy thời khóa biểu của sinh viên hiện tại
 	 */
 	@GetMapping("/schedule")
@@ -127,21 +142,6 @@ public class StudentPortalController {
 			return ResponseEntity.ok(courses);
 		} catch (Exception e) {
 			logger.error("Error getting available courses: ", e);
-			return ResponseEntity.badRequest().build();
-		}
-	}
-
-	/**
-	 * Lấy danh sách tất cả semesters từ database
-	 */
-	@GetMapping("/semesters")
-	public ResponseEntity<List<Share.SemesterInfo>> getAllSemesters() {
-		try {
-			List<Share.SemesterInfo> semesters = studentPortalService.getAllSemesters();
-			logger.info("Retrieved {} semesters", semesters.size());
-			return ResponseEntity.ok(semesters);
-		} catch (Exception e) {
-			logger.error("Error getting semesters: ", e);
 			return ResponseEntity.badRequest().build();
 		}
 	}

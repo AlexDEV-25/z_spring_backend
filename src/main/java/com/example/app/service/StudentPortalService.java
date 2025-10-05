@@ -37,6 +37,7 @@ import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.share.Share;
+import com.example.app.share.Share.SemesterInfo;
 
 /**
  * Student Portal Service
@@ -77,6 +78,19 @@ public class StudentPortalService {
 		this.passwordEncoder = new BCryptPasswordEncoder();
 		this.gradeCalculationService = gradeCalculationService;
 		this.departmentRepository = departmentRepository;
+	}
+
+	/**
+	 * Lấy danh sách tất cả semesters từ database
+	 */
+	public List<SemesterInfo> getAllSemesters() {
+		logger.info("Getting all semesters from database");
+
+		return semesterRepository.findAll().stream().map(semester -> {
+			String displayName = Share.generateDisplayName(semester.getSemester());
+			return new SemesterInfo(semester.getId(), semester.getSemester(), displayName);
+		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
+				.collect(Collectors.toList());
 	}
 
 	/* Hàm lấy semesterId mục tiêu truyền từ FE */
@@ -316,51 +330,6 @@ public class StudentPortalService {
 	}
 
 	/**
-	 * Lấy danh sách tất cả semesters từ database
-	 */
-	public List<Share.SemesterInfo> getAllSemesters() {
-		logger.info("Getting all semesters from database");
-
-		return semesterRepository.findAll().stream().map(semester -> {
-			String displayName = generateDisplayName(semester.getSemester());
-			return new Share.SemesterInfo(semester.getId(), semester.getSemester(), displayName);
-		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
-				.collect(Collectors.toList());
-	}
-
-	/**
-	 * Tạo display name cho semester (ví dụ: 2024-1 -> Học kỳ 1 (2024-2025))
-	 */
-	private String generateDisplayName(String semester) {
-		if (semester == null)
-			return "Không xác định";
-
-		try {
-			String[] parts = semester.split("-");
-			if (parts.length == 2) {
-				String year = parts[0];
-				String term = parts[1];
-				int yearInt = Integer.parseInt(year);
-
-				switch (term) {
-				case "1":
-					return "Học kỳ 1 (" + year + "-" + (yearInt + 1) + ")";
-				case "2":
-					return "Học kỳ 2 (" + year + "-" + (yearInt + 1) + ")";
-				case "3":
-					return "Học kỳ hè (" + year + "-" + (yearInt + 1) + ")";
-				default:
-					return "Học kỳ " + term + " (" + year + "-" + (yearInt + 1) + ")";
-				}
-			}
-		} catch (Exception e) {
-			logger.warn("Could not parse semester: {}", semester);
-		}
-
-		return semester; // fallback to original string
-	}
-
-	/**
 	 * Lấy thông tin cá nhân của sinh viên
 	 */
 	public StudentPortalInfo.StudentProfileInfo getStudentProfile(Long studentId) {
@@ -488,7 +457,7 @@ public class StudentPortalService {
 			}
 
 			// Tạo display name cho semester
-			String displayName = generateDisplayName(semester);
+			String displayName = Share.generateDisplayName(semester);
 
 			return new StudentPortalInfo.PaymentInfo(semesterEntity.getId(), semester, displayName, totalAmount,
 					paidAmount, paymentStatus, paymentDate, courseDetails);

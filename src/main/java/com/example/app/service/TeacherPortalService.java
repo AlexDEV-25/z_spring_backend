@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,7 @@ import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.share.Share;
+import com.example.app.share.Share.SemesterInfo;
 
 @Service
 @Transactional
@@ -64,6 +66,19 @@ public class TeacherPortalService {
 		this.lecturerRepository = lecturerRepository;
 		this.passwordEncoder = new BCryptPasswordEncoder();
 		this.gradeCalculationService = gradeCalculationService;
+	}
+
+	/**
+	 * Lấy danh sách tất cả semesters từ database
+	 */
+	public List<SemesterInfo> getAllSemesters() {
+		logger.info("Getting all semesters from database");
+
+		return semesterRepository.findAll().stream().map(semester -> {
+			String displayName = Share.generateDisplayName(semester.getSemester());
+			return new SemesterInfo(semester.getId(), semester.getSemester(), displayName);
+		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
+				.collect(Collectors.toList());
 	}
 
 	/**
@@ -227,51 +242,6 @@ public class TeacherPortalService {
 		return teachings.stream().map(Teaching::getCourseId)
 				.map(courseId -> courseRepository.findById(courseId).map(Course::getSemesterId).orElse(null))
 				.filter(Objects::nonNull).max(Long::compareTo).orElse(1L); // fallback nếu không có
-	}
-
-	/**
-	 * Lấy danh sách tất cả semesters từ database (để Controller có thể gọi)
-	 */
-	public List<Share.SemesterInfo> getAllSemesters() {
-		logger.info("Getting all semesters from database for teacher");
-
-		return semesterRepository.findAll().stream().map(semester -> {
-			String displayName = generateDisplayName(semester.getSemester());
-			return new Share.SemesterInfo(semester.getId(), semester.getSemester(), displayName);
-		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
-				.collect(ArrayList::new, (list, item) -> list.add(item), (list1, list2) -> list1.addAll(list2));
-	}
-
-	/**
-	 * Tạo display name cho semester (ví dụ: 2024-1 -> Học kỳ 1 (2024-2025))
-	 */
-	private String generateDisplayName(String semester) {
-		if (semester == null)
-			return "Không xác định";
-
-		try {
-			String[] parts = semester.split("-");
-			if (parts.length == 2) {
-				String year = parts[0];
-				String term = parts[1];
-				int yearInt = Integer.parseInt(year);
-
-				switch (term) {
-				case "1":
-					return "Học kỳ 1 (" + year + "-" + (yearInt + 1) + ")";
-				case "2":
-					return "Học kỳ 2 (" + year + "-" + (yearInt + 1) + ")";
-				case "3":
-					return "Học kỳ hè (" + year + "-" + (yearInt + 1) + ")";
-				default:
-					return "Học kỳ " + term + " (" + year + "-" + (yearInt + 1) + ")";
-				}
-			}
-		} catch (Exception e) {
-			logger.warn("Could not parse semester: {}", semester);
-		}
-
-		return semester; // fallback to original string
 	}
 
 	/**
