@@ -225,6 +225,18 @@ public class StudentPortalService {
 		logger.info("Registering course {} for student ID: {}", courseId, studentId);
 
 		try {
+			Semester semesterEntity = getSemesterBySemesterString(semester);
+			if (semesterEntity == null) {
+				return new StudentPortalInfo.CourseRegistrationResponse(false,
+						"Không tìm thấy thông tin học kỳ " + semester);
+			}
+
+			Optional<Payment> existingPayment = paymentRepository.findByStudentIdAndSemesterId(studentId,
+					semesterEntity.getId());
+			if (existingPayment.isPresent()) {
+				return new StudentPortalInfo.CourseRegistrationResponse(false,
+						"Bạn đã tạo hóa đơn cho học kỳ này không thể đăng ký thêm môn học.");
+			}
 			// Kiểm tra môn học tồn tại
 			Course course = courseRepository.findById(courseId)
 					.orElseThrow(() -> new RuntimeException("Không tìm thấy môn học"));
