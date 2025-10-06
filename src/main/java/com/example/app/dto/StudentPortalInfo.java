@@ -786,6 +786,7 @@ public class StudentPortalInfo {
 		private String paymentStatus;
 		private LocalDateTime paymentDate;
 		private List<CoursePaymentDetail> courseDetails;
+		private boolean canCreatePayment;
 
 		// Constructors
 		public PaymentInfo() {
@@ -793,16 +794,24 @@ public class StudentPortalInfo {
 
 		public PaymentInfo(Long semesterId, String semester, String semesterDisplayName, BigDecimal totalAmount,
 				BigDecimal paidAmount, String paymentStatus, LocalDateTime paymentDate,
-				List<CoursePaymentDetail> courseDetails) {
+				List<CoursePaymentDetail> courseDetails, boolean canCreatePayment) {
 			this.semesterId = semesterId;
 			this.semester = semester;
 			this.semesterDisplayName = semesterDisplayName;
 			this.totalAmount = totalAmount;
 			this.paidAmount = paidAmount;
-			this.remainingAmount = totalAmount.subtract(paidAmount);
 			this.paymentStatus = paymentStatus;
 			this.paymentDate = paymentDate;
 			this.courseDetails = courseDetails;
+			this.canCreatePayment = canCreatePayment;
+			recalculateDerivedFields();
+		}
+
+		public PaymentInfo(Long semesterId, String semester, String semesterDisplayName, BigDecimal totalAmount,
+				BigDecimal paidAmount, String paymentStatus, LocalDateTime paymentDate,
+				List<CoursePaymentDetail> courseDetails) {
+			this(semesterId, semester, semesterDisplayName, totalAmount, paidAmount, paymentStatus, paymentDate,
+					courseDetails, false);
 		}
 
 		// Getters and Setters
@@ -836,6 +845,7 @@ public class StudentPortalInfo {
 
 		public void setTotalAmount(BigDecimal totalAmount) {
 			this.totalAmount = totalAmount;
+			recalculateDerivedFields();
 		}
 
 		public BigDecimal getPaidAmount() {
@@ -844,6 +854,7 @@ public class StudentPortalInfo {
 
 		public void setPaidAmount(BigDecimal paidAmount) {
 			this.paidAmount = paidAmount;
+			recalculateDerivedFields();
 		}
 
 		public BigDecimal getRemainingAmount() {
@@ -868,6 +879,7 @@ public class StudentPortalInfo {
 
 		public void setPaymentDate(LocalDateTime paymentDate) {
 			this.paymentDate = paymentDate;
+			recalculateDerivedFields();
 		}
 
 		public List<CoursePaymentDetail> getCourseDetails() {
@@ -876,6 +888,27 @@ public class StudentPortalInfo {
 
 		public void setCourseDetails(List<CoursePaymentDetail> courseDetails) {
 			this.courseDetails = courseDetails;
+		}
+
+		public boolean isCanCreatePayment() {
+			return canCreatePayment;
+		}
+
+		public void setCanCreatePayment(boolean canCreatePayment) {
+			this.canCreatePayment = canCreatePayment;
+		}
+
+		private void recalculateDerivedFields() {
+			if (totalAmount != null && paidAmount != null) {
+				this.remainingAmount = totalAmount.subtract(paidAmount);
+			} else if (totalAmount != null) {
+				this.remainingAmount = totalAmount;
+			} else {
+				this.remainingAmount = BigDecimal.ZERO;
+			}
+
+			this.canCreatePayment = (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0)
+					&& paymentDate == null;
 		}
 	}
 

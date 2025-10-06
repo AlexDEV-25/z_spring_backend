@@ -174,6 +174,23 @@ public class StudentPortalController {
 	}
 
 	/**
+	 * Lấy thông tin thanh toán học phí của tất cả các kỳ học
+	 */
+	@GetMapping("/payments/all")
+	public ResponseEntity<List<StudentPortalInfo.PaymentInfo>> getAllPaymentInfo() {
+		try {
+			Long studentId = getCurrentStudentId();
+			logger.info("Getting all payment info for student ID: {}", studentId);
+
+			List<StudentPortalInfo.PaymentInfo> paymentInfos = studentPortalService.getAllPaymentInfo(studentId);
+			return ResponseEntity.ok(paymentInfos);
+		} catch (Exception e) {
+			logger.error("Error getting all payment info", e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
+	/**
 	 * Cập nhật trạng thái thanh toán thành công
 	 */
 	@PostMapping("/payment/confirm")
