@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.dto.StudentDTO;
 import com.example.app.dto.StudentPortalInfo;
+import com.example.app.dto.UserDTO;
 import com.example.app.enumvalue.Status;
 import com.example.app.model.Payment;
 import com.example.app.model.Semester;
@@ -28,6 +29,7 @@ import com.example.app.repository.PaymentRepository;
 import com.example.app.repository.SemesterRepository;
 import com.example.app.service.StudentPortalService;
 import com.example.app.service.StudentService;
+import com.example.app.service.UserService;
 import com.example.app.share.Share;
 
 import jakarta.validation.Valid;
@@ -46,13 +48,15 @@ public class StudentPortalController {
 	private final StudentPortalService studentPortalService;
 	private final SemesterRepository semesterRepository;
 	private final PaymentRepository paymentRepository;
+	private final UserService userService;
 
 	public StudentPortalController(StudentService studentService, StudentPortalService studentPortalService,
-			SemesterRepository semesterRepository, PaymentRepository paymentRepository) {
+			SemesterRepository semesterRepository, PaymentRepository paymentRepository, UserService userService) {
 		this.studentService = studentService;
 		this.studentPortalService = studentPortalService;
 		this.semesterRepository = semesterRepository;
 		this.paymentRepository = paymentRepository;
+		this.userService = userService;
 	}
 
 	/**
@@ -158,7 +162,7 @@ public class StudentPortalController {
 
 			// Nếu không có semester, lấy semester mới nhất
 			if (semester == null || semester.trim().isEmpty()) {
-				semester = studentPortalService.getLatestSemesterInfo();
+				semester = "2024-1";
 			}
 
 			StudentPortalInfo.PaymentInfo paymentInfo = studentPortalService.getPaymentInfo(studentId, semester);
@@ -215,7 +219,7 @@ public class StudentPortalController {
 
 			// Nếu không có semester, lấy semester mới nhất
 			if (semester == null || semester.trim().isEmpty()) {
-				semester = studentPortalService.getLatestSemesterInfo();
+				semester = "2024-1";
 			}
 
 			String result = studentPortalService.createPaymentRequest(studentId, semester);
@@ -247,10 +251,10 @@ public class StudentPortalController {
 	public ResponseEntity<Share.ChangePasswordResponse> changePassword(
 			@Valid @RequestBody Share.ChangePasswordRequest request) {
 		try {
-			Long StudentId = getCurrentStudentId();
-			logger.info("Changing password for student ID: {}", StudentId);
+			Long userId = getCurrentUserId();
+			logger.info("Changing password for lecturer ID: {}", userId);
 
-			Share.ChangePasswordResponse response = studentPortalService.changePassword(StudentId, request);
+			Share.ChangePasswordResponse response = studentPortalService.changePassword(userId, request);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			logger.error("Error changing password", e);
@@ -288,5 +292,16 @@ public class StudentPortalController {
 		String username = authentication.getName();
 		return studentService.getStudentByUsername(username).map(StudentDTO::getId)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin sinh viên"));
+	}
+
+	/**
+	 * Lấy ID của user hiện tại từ Security Context
+	 */
+	private Long getCurrentUserId() {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		String username = authentication.getName();
+
+		return userService.getUserByUsername(username).map(UserDTO::getId)
+				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng"));
 	}
 }

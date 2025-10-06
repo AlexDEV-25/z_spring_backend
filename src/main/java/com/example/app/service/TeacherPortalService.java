@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +32,8 @@ import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.share.Share;
-import com.example.app.share.Share.SemesterInfo;
+import com.example.app.share.Share.ChangePassword;
+import com.example.app.share.Share.getAllSemester;
 
 @Service
 @Transactional
@@ -68,23 +68,14 @@ public class TeacherPortalService {
 		this.gradeCalculationService = gradeCalculationService;
 	}
 
-	/**
-	 * Lấy danh sách tất cả semesters từ database
-	 */
-	public List<SemesterInfo> getAllSemesters() {
+	// Lấy danh sách tất cả semesters từ database
+	public List<Share.SemesterInfo> getAllSemesters() {
 		logger.info("Getting all semesters from database");
-
-		return semesterRepository.findAll().stream().map(semester -> {
-			String displayName = Share.generateDisplayName(semester.getSemester());
-			return new SemesterInfo(semester.getId(), semester.getSemester(), displayName);
-		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
-				.collect(Collectors.toList());
+		Share.getAllSemester semesters = new getAllSemester(semesterRepository);
+		return semesters.getAllSemesters();
 	}
 
-	/**
-	 * Lấy danh sách lớp học mà giảng viên được phân công dạy theo semester được
-	 * chọn
-	 */
+	// Lấy danh sách lớp học mà GV được phân công dạy theo semester được chọn
 	public List<TeacherPortalInfo.TeacherScheduleInfo> getTeacherClasses(Long lecturerId, String semester) {
 		logger.info("Getting teacher classes for lecturer ID: {} in semester: {}", lecturerId, semester);
 
@@ -96,9 +87,9 @@ public class TeacherPortalService {
 		if (semester != null && !semester.trim().isEmpty()) {
 			// Tìm semesterId từ semester string
 			targetSemesterId = semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
-					.map(s -> s.getId()).findFirst().orElse(getLatestSemesterId(teachings));
+					.map(s -> s.getId()).findFirst().orElse(1L);
 		} else {
-			targetSemesterId = getLatestSemesterId(teachings);
+			targetSemesterId = 1L;
 		}
 
 		logger.info("Filtering teacher classes by semesterId: {}", targetSemesterId);
@@ -128,10 +119,7 @@ public class TeacherPortalService {
 		return teacherClasses;
 	}
 
-	/**
-	 * Lấy danh sách sinh viên trong một lớp học cụ thể (class tồn tại ,student tồn
-	 * tại)
-	 */
+	// Lấy danh sách sinh viên trong một lớp học cụ thể (student tồn tại)
 	public List<StudentInfo> getStudentsForClass(Long teachingId) {
 		logger.info("Getting students for teaching ID: {}", teachingId);
 
@@ -158,9 +146,7 @@ public class TeacherPortalService {
 		return saved;
 	}
 
-	/**
-	 * Chấm điểm cho sinh viên (sửa enrollment)
-	 */
+	// Chấm điểm cho sinh viên (sửa enrollment)
 	public Enrollment gradeStudent(EnrollmentDTO enrollmentDTO) {
 		logger.info("Grading student ID: {} for course ID: {} in semester: {}", enrollmentDTO.getStudentId(),
 				enrollmentDTO.getCourseId(), enrollmentDTO);
@@ -183,9 +169,7 @@ public class TeacherPortalService {
 		return updatedEnrollment;
 	}
 
-	/**
-	 * Lấy danh sách sinh viên đăng ký một môn học
-	 */
+	// Lấy danh sách sinh viên đăng ký một môn học
 	private List<StudentInfo> getStudentsForCourse(Long courseId) {
 		List<Enrollment> enrollments = enrollmentRepository.findAll().stream()
 				.filter(e -> e.getCourseId() != null && e.getCourseId().equals(courseId)).toList();
@@ -227,26 +211,19 @@ public class TeacherPortalService {
 
 	}
 
-	/**
-	 * Kiểm tra xem giảng viên có được phân công dạy môn học này không
-	 */
+	public List<Teaching> findByLecturerId(Long lecturerId) {
+		return teachingRepository.findByLecturerId(lecturerId);
+	}
+
+	// Kiểm tra xem giảng viên có được phân công dạy môn học này không
 	public boolean isTeacherAssignedToCourse(Long lecturerId, Long courseId) {
 		return teachingRepository.findByLecturerId(lecturerId).stream()
 				.anyMatch(t -> t.getCourseId() != null && t.getCourseId().equals(courseId));
 	}
 
-	/**
-	 * Lấy semesterId mới nhất từ danh sách teachings
-	 */
-	private Long getLatestSemesterId(List<Teaching> teachings) {
-		return teachings.stream().map(Teaching::getCourseId)
-				.map(courseId -> courseRepository.findById(courseId).map(Course::getSemesterId).orElse(null))
-				.filter(Objects::nonNull).max(Long::compareTo).orElse(1L); // fallback nếu không có
-	}
+	// Lấy thông tin cá nhân của giảng viên
 
-	/**
-	 * Lấy thông tin cá nhân của giảng viên
-	 */
+	// Lấy thông tin cá nhân
 	public TeacherPortalInfo.TeacherProfile getTeacherProfile(Long lecturerId) {
 		logger.info("Getting profile for lecturer ID: {}", lecturerId);
 
@@ -264,52 +241,18 @@ public class TeacherPortalService {
 		);
 	}
 
-	/**
-	 * Thay đổi mật khẩu cho giảng viên (không cần mật khẩu hiện tại)
-	 */
-	public Share.ChangePasswordResponse changePassword(Long lecturerId, Share.ChangePasswordRequest request) {
-		logger.info("Changing password for lecturer ID: {}", lecturerId);
+	// Thay đổi mật khẩu cho giảng viên (không cần mật khẩu hiện tại)
 
-		try {
-			// Validate input - chỉ cần mật khẩu mới
-			if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
-				return new Share.ChangePasswordResponse(false, "Mật khẩu mới không được để trống");
-			}
-
-			if (request.getNewPassword().length() < 6) {
-				return new Share.ChangePasswordResponse(false, "Mật khẩu mới phải có ít nhất 6 ký tự");
-			}
-
-			if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-				return new Share.ChangePasswordResponse(false, "Xác nhận mật khẩu không khớp");
-			}
-
-			// Get lecturer and user
-			Lecturer lecturer = lecturerRepository.findById(lecturerId).orElseThrow(
-					() -> new ResourceNotFoundException("Không tìm thấy giảng viên với ID: " + lecturerId));
-
-			User user = userRepository.findById(lecturer.getUserId()).orElseThrow(() -> new ResourceNotFoundException(
-					"Không tìm thấy thông tin user cho giảng viên ID: " + lecturerId));
-
-			// Mã hóa mật khẩu mới bằng BCrypt
-			String encodedPassword = passwordEncoder.encode(request.getNewPassword());
-
-			// Update password với mật khẩu đã mã hóa
-			user.setPassword(encodedPassword);
-			userRepository.save(user);
-
-			logger.info("Password changed successfully for lecturer ID: {}", lecturerId);
-			return new Share.ChangePasswordResponse(true, "Đổi mật khẩu thành công");
-
-		} catch (Exception e) {
-			logger.error("Error changing password for lecturer ID: {}", lecturerId, e);
-			return new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage());
-		}
+	// Thay đổi mật khẩu
+	public Share.ChangePasswordResponse changePassword(Long userId, Share.ChangePasswordRequest request) {
+		logger.info("Changing password for user ID: {}", userId);
+		Share.ChangePassword change = new ChangePassword(passwordEncoder, userRepository);
+		return change.changePassword(userId, request);
 	}
 
-	/**
-	 * Xuất bảng điểm lớp học ra file CSV
-	 */
+	// Xuất bảng điểm lớp học ra file CSV
+
+	// Xuất bảng điểm ra file CSV
 	public byte[] exportClassGradesToCsv(Long teachingId, Long lecturerId) {
 		try {
 			// Lấy danh sách sinh viên trong lớp

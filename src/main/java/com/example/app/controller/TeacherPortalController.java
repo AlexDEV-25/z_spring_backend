@@ -25,12 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.app.dto.EnrollmentDTO;
 import com.example.app.dto.TeacherPortalInfo;
 import com.example.app.dto.TeacherPortalInfo.StudentInfo;
+import com.example.app.dto.UserDTO;
 import com.example.app.model.Enrollment;
 import com.example.app.model.Lecturer;
 import com.example.app.model.Teaching;
-import com.example.app.repository.TeachingRepository;
 import com.example.app.service.LecturerService;
 import com.example.app.service.TeacherPortalService;
+import com.example.app.service.UserService;
 import com.example.app.share.Share;
 
 import jakarta.validation.Valid;
@@ -44,13 +45,13 @@ public class TeacherPortalController {
 
 	private final TeacherPortalService teacherService;
 	private final LecturerService lecturerService;
-	private final TeachingRepository teachingRepository;
+	private final UserService userService;
 
 	public TeacherPortalController(TeacherPortalService teacherService, LecturerService lecturerService,
-			TeachingRepository teachingRepository) {
+			UserService userService) {
 		this.teacherService = teacherService;
 		this.lecturerService = lecturerService;
-		this.teachingRepository = teachingRepository;
+		this.userService = userService;
 	}
 
 	/**
@@ -147,7 +148,7 @@ public class TeacherPortalController {
 				logger.info("Debug - Found lecturer: ID={}, Code={}", lecturer.getId(), lecturer.getLecturerCode());
 
 				// Kiểm tra có teaching nào không
-				List<Teaching> teachings = teachingRepository.findByLecturerId(lecturer.getId());
+				List<Teaching> teachings = teacherService.findByLecturerId(lecturer.getId());
 				logger.info("Debug - Found {} teachings for lecturer", teachings.size());
 
 				return ResponseEntity.ok(Map.of("username", username, "lecturerId", lecturer.getId(), "lecturerCode",
@@ -186,10 +187,10 @@ public class TeacherPortalController {
 	public ResponseEntity<Share.ChangePasswordResponse> changePassword(
 			@Valid @RequestBody Share.ChangePasswordRequest request) {
 		try {
-			Long lecturerId = getCurrentLecturerId();
-			logger.info("Changing password for lecturer ID: {}", lecturerId);
+			Long userId = getCurrentUserId();
+			logger.info("Changing password for lecturer ID: {}", userId);
 
-			Share.ChangePasswordResponse response = teacherService.changePassword(lecturerId, request);
+			Share.ChangePasswordResponse response = teacherService.changePassword(userId, request);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			logger.error("Error changing password", e);
@@ -229,4 +230,16 @@ public class TeacherPortalController {
 		return lecturerService.getLecturerByUsername(username).map(Lecturer::getId)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin giảng viên"));
 	}
+
+	/**
+	 * Lấy ID của user hiện tại từ Security Context
+	 */
+	private Long getCurrentUserId() {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		String username = authentication.getName();
+
+		return userService.getUserByUsername(username).map(UserDTO::getId)
+				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng"));
+	}
+
 }

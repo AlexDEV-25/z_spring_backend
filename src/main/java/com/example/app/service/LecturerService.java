@@ -62,16 +62,10 @@ public class LecturerService {
 	private LecturerDTO.LecturerWithDetailsDTO convertToDetailDTO(Lecturer lecturer) {
 		User user = userRepository.findById(lecturer.getUserId()).orElse(null);
 		String fullName = user != null ? user.getFullName() : lecturer.getLecturerCode();
-		String department = user != null && user.getDepartmentId() != null ? 
-			"Khoa " + user.getDepartmentId() : "N/A";
-		
-		return new LecturerDTO.LecturerWithDetailsDTO(
-			lecturer.getId(),
-			lecturer.getUserId(),
-			lecturer.getLecturerCode(),
-			fullName,
-			department
-		);
+		String department = user != null && user.getDepartmentId() != null ? "Khoa " + user.getDepartmentId() : "N/A";
+
+		return new LecturerDTO.LecturerWithDetailsDTO(lecturer.getId(), lecturer.getUserId(),
+				lecturer.getLecturerCode(), fullName, department);
 	}
 
 	public LecturerDTO saveLecturer(LecturerDTO dto) {

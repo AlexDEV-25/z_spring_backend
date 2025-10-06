@@ -37,7 +37,8 @@ import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.share.Share;
-import com.example.app.share.Share.SemesterInfo;
+import com.example.app.share.Share.ChangePassword;
+import com.example.app.share.Share.getAllSemester;
 
 /**
  * Student Portal Service
@@ -80,31 +81,25 @@ public class StudentPortalService {
 		this.departmentRepository = departmentRepository;
 	}
 
-	/**
-	 * Lấy danh sách tất cả semesters từ database
-	 */
-	public List<SemesterInfo> getAllSemesters() {
+	// Lấy danh sách tất cả semesters từ database
+	public List<Share.SemesterInfo> getAllSemesters() {
 		logger.info("Getting all semesters from database");
-
-		return semesterRepository.findAll().stream().map(semester -> {
-			String displayName = Share.generateDisplayName(semester.getSemester());
-			return new SemesterInfo(semester.getId(), semester.getSemester(), displayName);
-		}).sorted((s1, s2) -> s2.getSemester().compareTo(s1.getSemester())) // Sort descending (newest first)
-				.collect(Collectors.toList());
+		Share.getAllSemester semesters = new getAllSemester(semesterRepository);
+		return semesters.getAllSemesters();
 	}
 
-	/* Hàm lấy semesterId mục tiêu truyền từ FE */
+	// Hàm lấy semesterId mục tiêu truyền từ FE (1-8)
 	private Long resolveTargetSemesterId(String semester) {
 		if (semester != null && !semester.trim().isEmpty()) {
 			// Tìm semesterId tương ứng với chuỗi semester truyền vào
 			return semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
-					.map(Semester::getId).findFirst().orElse(getLatestSemesterId());
+					.map(Semester::getId).findFirst().orElse(1L);
 		}
 		// Nếu không truyền hoặc rỗng, lấy kỳ mới nhất
-		return getLatestSemesterId();
+		return 1L;
 	}
 
-	/* Hàm lấy danh sách enrollment theo sinh viên + kỳ học */
+	// Hàm lấy danh sách enrollment theo sinh viên + kỳ học
 	private List<Enrollment> getEnrolledCoursesBySemester(Long studentId, Long semesterId) {
 		return enrollmentRepository.findByStudentId(studentId).stream().filter(e -> "ENROLLED".equals(e.getStatus()))
 				.filter(e -> {
@@ -113,7 +108,7 @@ public class StudentPortalService {
 				}).collect(Collectors.toList());
 	}
 
-	/* Hàm chuyển đổi Enrollment → ScheduleItem */
+	// Hàm chuyển đổi Enrollment → ScheduleItem
 	private StudentPortalInfo.ScheduleItem convertToScheduleItem(Enrollment enrollment, Long targetSemesterId) {
 		Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
 		if (course == null || !targetSemesterId.equals(course.getSemesterId()))
@@ -138,7 +133,7 @@ public class StudentPortalService {
 				teaching != null && teaching.getClassRoom() != null ? teaching.getClassRoom() : "Chưa xác định");
 	}
 
-	/* Hàm chính sau khi tách */
+	// Hàm lấy thông tin thời khóa biểu
 	public StudentPortalInfo.StudentScheduleInfo getStudentSchedule(Long studentId, String semester) {
 		logger.info("Getting schedule for student ID: {} in semester: {}", studentId, semester);
 
@@ -162,27 +157,24 @@ public class StudentPortalService {
 				semester, totalCredits, scheduleItems);
 	}
 
-	/**
-	 * Lấy bảng điểm của sinh viên (theo học phần đã đăng ký của semester được chọn)
-	 */
+	// Lấy bảng điểm của sinh viên (theo học phần đã đăng ký của semester được chọn)
 	public StudentPortalInfo.StudentGradesInfo getStudentGrades(Long studentId, String semester) {
 		logger.info("Getting grades for student ID: {} in semester: {}", studentId, semester);
 
 		Student student = getStudentById(studentId);
 		User user = getUserById(student.getUserId());
 
-		// Xác định semesterId để lọc (sử dụng semester được truyền vào hoặc lấy mới
-		// nhất)
+		// Xác định semesterId để lọc (sử dụng semester được truyền vào)
 		Long targetSemesterId;
 		String targetSemesterString;
 		if (semester != null && !semester.trim().isEmpty()) {
 			// Tìm semesterId từ semester string
 			targetSemesterId = semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
-					.map(s -> s.getId()).findFirst().orElse(getLatestSemesterId());
+					.map(s -> s.getId()).findFirst().orElse(1L);
 			targetSemesterString = semester;
 		} else {
-			targetSemesterId = getLatestSemesterId();
-			targetSemesterString = getSemesterStringById(targetSemesterId);
+			targetSemesterId = 1L;
+			targetSemesterString = "2024-1";
 		}
 
 		logger.info("Filtering grades by semesterId: {} ({})", targetSemesterId, targetSemesterString);
@@ -228,16 +220,11 @@ public class StudentPortalService {
 				totalCredits, completedCredits, gradeItems, totalCourses, completedCourses, inProgressCourses);
 	}
 
-	/**
-	 * Đăng ký môn học (trả về thông báo có đăng ký được không, tạo enrollment mới)
-	 */
+	// Đăng ký môn học
 	public StudentPortalInfo.CourseRegistrationResponse registerCourse(Long studentId, Long courseId, String semester) {
 		logger.info("Registering course {} for student ID: {}", courseId, studentId);
 
 		try {
-			// Kiểm tra sinh viên tồn tại
-			// Student student = getStudentById(studentId);
-
 			// Kiểm tra môn học tồn tại
 			Course course = courseRepository.findById(courseId)
 					.orElseThrow(() -> new RuntimeException("Không tìm thấy môn học"));
@@ -262,9 +249,7 @@ public class StudentPortalService {
 		}
 	}
 
-	/**
-	 * Hủy đăng ký môn học
-	 */
+	// Hủy đăng ký môn học
 	public StudentPortalInfo.CourseRegistrationResponse unregisterCourse(Long studentId, Long courseId) {
 		logger.info("Unregistering course {} for student ID: {}", courseId, studentId);
 
@@ -302,107 +287,7 @@ public class StudentPortalService {
 		return userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin user"));
 	}
 
-	/**
-	 * Lấy semesterId mới nhất từ các courses có sẵn
-	 */
-	private Long getLatestSemesterId() {
-		// Lấy semesterId cao nhất từ bảng courses
-		return courseRepository.findAll().stream().map(Course::getSemesterId).filter(semesterId -> semesterId != null)
-				.max(Long::compareTo).orElse(1L); // fallback nếu không có
-	}
-
-	/**
-	 * Lấy semester string từ semesterId
-	 */
-	private String getSemesterStringById(Long semesterId) {
-		if (semesterId == null)
-			return "2024-1";
-
-		return semesterRepository.findById(semesterId).map(Semester::getSemester).orElse("2024-1");
-	}
-
-	/**
-	 * Public method để Controller có thể gọi lấy semester mới nhất
-	 */
-	public String getLatestSemesterInfo() {
-		Long latestSemesterId = getLatestSemesterId();
-		return getSemesterStringById(latestSemesterId);
-	}
-
-	/**
-	 * Lấy thông tin cá nhân của sinh viên
-	 */
-	public StudentPortalInfo.StudentProfileInfo getStudentProfile(Long studentId) {
-		logger.info("Getting profile for student ID: {}", studentId);
-
-		Student student = studentRepository.findById(studentId)
-				.orElseThrow(() -> new RuntimeException("Không tìm thấy sinh viên với ID: " + studentId));
-
-		User user = userRepository.findById(student.getUserId()).orElseThrow(
-				() -> new RuntimeException("Không tìm thấy thông tin user cho sinh viên ID: " + studentId));
-
-		Department department = departmentRepository.findById(user.getDepartmentId())
-				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin department"));
-
-		// Lấy tên lớp và niên khóa
-		String className = "Chưa phân lớp";
-		String classYear = "Chưa phân niên khóa";
-		if (student.getClassId() != null) {
-			ClassEntity classEntity = classRepository.findById(student.getClassId()).orElse(null);
-			className = (classEntity != null) ? classEntity.getName() : "Lớp chưa có ";
-			classYear = (classEntity != null) ? classEntity.getYear() : "năm chưa có ";
-		}
-		System.out.println(department.getName() + classYear);
-		return new StudentPortalInfo.StudentProfileInfo(student.getId(), student.getStudentCode(), user.getFullName(),
-				user.getEmail(), user.getPhone(), className, department.getName(), classYear);
-	}
-
-	/**
-	 * Thay đổi mật khẩu cho sinh viên (không cần mật khẩu hiện tại)
-	 */
-	public Share.ChangePasswordResponse changePassword(Long studentId, Share.ChangePasswordRequest request) {
-		logger.info("Changing password for student ID: {}", studentId);
-
-		try {
-			// Validate input - chỉ cần mật khẩu mới
-			if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
-				return new Share.ChangePasswordResponse(false, "Mật khẩu mới không được để trống");
-			}
-
-			if (request.getNewPassword().length() < 6) {
-				return new Share.ChangePasswordResponse(false, "Mật khẩu mới phải có ít nhất 6 ký tự");
-			}
-
-			if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-				return new Share.ChangePasswordResponse(false, "Xác nhận mật khẩu không khớp");
-			}
-
-			// Get student and user
-			Student student = studentRepository.findById(studentId)
-					.orElseThrow(() -> new RuntimeException("Không tìm thấy sinh viên với ID: " + studentId));
-
-			User user = userRepository.findById(student.getUserId()).orElseThrow(
-					() -> new RuntimeException("Không tìm thấy thông tin user cho sinh viên ID: " + studentId));
-
-			// Mã hóa mật khẩu mới bằng BCrypt
-			String encodedPassword = passwordEncoder.encode(request.getNewPassword());
-
-			// Update password với mật khẩu đã mã hóa
-			user.setPassword(encodedPassword);
-			userRepository.save(user);
-
-			logger.info("Password changed successfully for student ID: {}", studentId);
-			return new Share.ChangePasswordResponse(true, "Đổi mật khẩu thành công");
-
-		} catch (Exception e) {
-			logger.error("Error changing password for student ID: {}", studentId, e);
-			return new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage());
-		}
-	}
-
-	/**
-	 * Lấy thông tin thanh toán học phí của sinh viên theo semester
-	 */
+	// Lấy thông tin thanh toán học phí của sinh viên theo semester
 	public StudentPortalInfo.PaymentInfo getPaymentInfo(Long studentId, String semester) {
 		logger.info("Getting payment info for student ID: {} in semester: {}", studentId, semester);
 
@@ -457,7 +342,7 @@ public class StudentPortalService {
 			}
 
 			// Tạo display name cho semester
-			String displayName = Share.generateDisplayName(semester);
+			String displayName = Share.getAllSemester.generateDisplayName(semester);
 
 			return new StudentPortalInfo.PaymentInfo(semesterEntity.getId(), semester, displayName, totalAmount,
 					paidAmount, paymentStatus, paymentDate, courseDetails);
@@ -468,10 +353,8 @@ public class StudentPortalService {
 		}
 	}
 
-	/**
-	 * Lấy danh sách thông tin thanh toán của tất cả các semester mà sinh viên đã
-	 * đăng ký
-	 */
+	// Lấy danh sách thông tin thanh toán của tất cả các semester mà sinh viên đã
+	// đăng ký
 	public List<StudentPortalInfo.PaymentInfo> getAllPaymentInfo(Long studentId) {
 		logger.info("Getting all payment info for student ID: {}", studentId);
 
@@ -502,9 +385,7 @@ public class StudentPortalService {
 		}
 	}
 
-	/**
-	 * Tạo payment record cho sinh viên trong semester
-	 */
+	// Tạo payment record cho sinh viên trong semester
 	public Payment createPayment(Long studentId, String semester) {
 		logger.info("Creating payment for student ID: {} in semester: {}", studentId, semester);
 
@@ -531,10 +412,8 @@ public class StudentPortalService {
 		}
 	}
 
-	/**
-	 * Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi tạo yêu
-	 * cầu thanh toán và trừ slot trong course
-	 */
+	// Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED khi tạo yêu
+	// cầu thanh toán và trừ slot trong course
 	public void updateEnrollmentStatusToEnrolled(Long studentId, String semester) {
 		try {
 			logger.info("Updating enrollment status to ENROLLED for student ID: {} in semester: {}", studentId,
@@ -596,56 +475,13 @@ public class StudentPortalService {
 		}
 	}
 
-	/**
-	 * Helper method để lấy Semester entity từ semester string
-	 */
+	// Helper method để lấy Semester entity từ semester string
 	private Semester getSemesterBySemesterString(String semester) {
 		return semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester)).findFirst()
 				.orElse(null);
 	}
 
-	/**
-	 * Xuất bảng điểm ra file CSV
-	 */
-	public byte[] exportGradesToCsv(Long studentId, String semester) {
-		try {
-			StudentPortalInfo.StudentGradesInfo grades = getStudentGrades(studentId, semester);
-
-			StringBuilder csv = new StringBuilder();
-			// Add BOM for UTF-8
-			csv.append('\ufeff');
-
-			// Headers
-			csv.append(
-					"Mã môn,Tên môn học,Tín chỉ,Điểm TP1,Điểm TP2,Điểm CK,Điểm TK,Hệ số 4,Điểm chữ,Xếp loại,Trạng thái,Học kỳ\n");
-
-			// Data rows
-			for (StudentPortalInfo.GradeItem item : grades.getGradeItems()) {
-				csv.append(Share.escapeCSV(item.getCourseCode())).append(",");
-				csv.append(Share.escapeCSV(item.getCourseName())).append(",");
-				csv.append(item.getCredit()).append(",");
-				csv.append(item.getComponentScore1() != null ? item.getComponentScore1() : "").append(",");
-				csv.append(item.getComponentScore2() != null ? item.getComponentScore2() : "").append(",");
-				csv.append(item.getFinalExamScore() != null ? item.getFinalExamScore() : "").append(",");
-				csv.append(item.getTotalScore() != null ? item.getTotalScore() : "").append(",");
-				csv.append(item.getScoreCoefficient4() != null ? item.getScoreCoefficient4() : "").append(",");
-				csv.append(Share.escapeCSV(item.getGrade())).append(",");
-				csv.append(Share.escapeCSV(gradeCalculationService.getClassification(item.getTotalScore())))
-						.append(",");
-				csv.append(Share.escapeCSV(item.getStatus())).append(",");
-				csv.append(Share.escapeCSV(item.getSemester())).append("\n");
-			}
-
-			return csv.toString().getBytes(StandardCharsets.UTF_8);
-		} catch (Exception e) {
-			logger.error("Error exporting grades to CSV", e);
-			throw new RuntimeException("Error exporting grades", e);
-		}
-	}
-
-	/**
-	 * Tạo yêu cầu thanh toán học phí cho sinh viên
-	 */
+	// Tạo yêu cầu thanh toán học phí cho sinh viên
 	public String createPaymentRequest(Long studentId, String semester) {
 		try {
 			logger.info("Creating payment request for student ID: {} in semester: {}", studentId, semester);
@@ -681,8 +517,7 @@ public class StudentPortalService {
 					return "Đã thanh toán học phí cho kỳ này";
 				} else if (existingPayment.getStatus() == Status.PENDING) {
 					// Payment đã tồn tại và đang chờ thanh toán - kiểm tra enrollment đã được cập
-					// nhật chưa
-					// Cập nhật trạng thái enrollment và trừ slot nếu chưa được cập nhật
+					// nhật chưa Cập nhật trạng thái enrollment và trừ slot nếu chưa được cập nhật
 					updateEnrollmentStatusToEnrolled(studentId, semester);
 					return "Yêu cầu thanh toán đã được tạo, đã cập nhật trạng thái đăng ký cho kỳ: " + semester;
 				} else {
@@ -725,8 +560,7 @@ public class StudentPortalService {
 						studentId, semester, totalAmount);
 
 				// Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED ngay khi tạo
-				// payment
-				// Và trừ slot trong course
+				// payment Và trừ slot trong course
 				updateEnrollmentStatusToEnrolled(studentId, semester);
 
 				return "Đã tạo yêu cầu thanh toán và đăng ký chính thức cho kỳ: " + semester + " - Tổng tiền: "
@@ -739,10 +573,8 @@ public class StudentPortalService {
 		}
 	}
 
-	/**
-	 * Lấy danh sách khóa học có thể đăng ký theo kỳ học (để tương thích với
-	 * frontend)
-	 */
+	// Lấy danh sách khóa học có thể đăng ký theo kỳ học (để tương thích với
+	// frontend)
 	public List<StudentPortalInfo.AvailableCourseInfo> getAvailableCourses(Long studentId, String semester) {
 		try {
 			logger.info("Getting available courses for student ID: {} in semester: {}", studentId, semester);
@@ -797,4 +629,73 @@ public class StudentPortalService {
 		}
 	}
 
+	// Lấy thông tin cá nhân
+	public StudentPortalInfo.StudentProfileInfo getStudentProfile(Long studentId) {
+		logger.info("Getting profile for student ID: {}", studentId);
+
+		Student student = studentRepository.findById(studentId)
+				.orElseThrow(() -> new RuntimeException("Không tìm thấy sinh viên với ID: " + studentId));
+
+		User user = userRepository.findById(student.getUserId()).orElseThrow(
+				() -> new RuntimeException("Không tìm thấy thông tin user cho sinh viên ID: " + studentId));
+
+		Department department = departmentRepository.findById(user.getDepartmentId())
+				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin department"));
+
+		// Lấy tên lớp và niên khóa
+		String className = "Chưa phân lớp";
+		String classYear = "Chưa phân niên khóa";
+		if (student.getClassId() != null) {
+			ClassEntity classEntity = classRepository.findById(student.getClassId()).orElse(null);
+			className = (classEntity != null) ? classEntity.getName() : "Lớp chưa có ";
+			classYear = (classEntity != null) ? classEntity.getYear() : "năm chưa có ";
+		}
+		System.out.println(department.getName() + classYear);
+		return new StudentPortalInfo.StudentProfileInfo(student.getId(), student.getStudentCode(), user.getFullName(),
+				user.getEmail(), user.getPhone(), className, department.getName(), classYear);
+	}
+
+	// Thay đổi mật khẩu
+	public Share.ChangePasswordResponse changePassword(Long userId, Share.ChangePasswordRequest request) {
+		logger.info("Changing password for user ID: {}", userId);
+		Share.ChangePassword change = new ChangePassword(passwordEncoder, userRepository);
+		return change.changePassword(userId, request);
+	}
+
+	// Xuất bảng điểm ra file CSV
+	public byte[] exportGradesToCsv(Long studentId, String semester) {
+		try {
+			StudentPortalInfo.StudentGradesInfo grades = getStudentGrades(studentId, semester);
+
+			StringBuilder csv = new StringBuilder();
+			// Add BOM for UTF-8
+			csv.append('\ufeff');
+
+			// Headers
+			csv.append(
+					"Mã môn,Tên môn học,Tín chỉ,Điểm TP1,Điểm TP2,Điểm CK,Điểm TK,Hệ số 4,Điểm chữ,Xếp loại,Trạng thái,Học kỳ\n");
+
+			// Data rows
+			for (StudentPortalInfo.GradeItem item : grades.getGradeItems()) {
+				csv.append(Share.escapeCSV(item.getCourseCode())).append(",");
+				csv.append(Share.escapeCSV(item.getCourseName())).append(",");
+				csv.append(item.getCredit()).append(",");
+				csv.append(item.getComponentScore1() != null ? item.getComponentScore1() : "").append(",");
+				csv.append(item.getComponentScore2() != null ? item.getComponentScore2() : "").append(",");
+				csv.append(item.getFinalExamScore() != null ? item.getFinalExamScore() : "").append(",");
+				csv.append(item.getTotalScore() != null ? item.getTotalScore() : "").append(",");
+				csv.append(item.getScoreCoefficient4() != null ? item.getScoreCoefficient4() : "").append(",");
+				csv.append(Share.escapeCSV(item.getGrade())).append(",");
+				csv.append(Share.escapeCSV(gradeCalculationService.getClassification(item.getTotalScore())))
+						.append(",");
+				csv.append(Share.escapeCSV(item.getStatus())).append(",");
+				csv.append(Share.escapeCSV(item.getSemester())).append("\n");
+			}
+
+			return csv.toString().getBytes(StandardCharsets.UTF_8);
+		} catch (Exception e) {
+			logger.error("Error exporting grades to CSV", e);
+			throw new RuntimeException("Error exporting grades", e);
+		}
+	}
 }
