@@ -33,6 +33,7 @@ import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.share.Share;
 import com.example.app.share.Share.ChangePassword;
+import com.example.app.share.Share.SemesterUtils;
 import com.example.app.share.Share.getAllSemester;
 
 @Service
@@ -68,51 +69,35 @@ public class TeacherPortalService {
 		this.gradeCalculationService = gradeCalculationService;
 	}
 
-	// Lấy danh sách tất cả semesters từ database
 	public List<Share.SemesterInfo> getAllSemesters() {
 		logger.info("Getting all semesters from database");
-		Share.getAllSemester semesters = new getAllSemester(semesterRepository);
+		getAllSemester semesters = new getAllSemester(semesterRepository);
 		return semesters.getAllSemesters();
 	}
 
-	// Lấy danh sách lớp học mà GV được phân công dạy theo semester được chọn
 	public List<TeacherPortalInfo.TeacherScheduleInfo> getTeacherClasses(Long lecturerId, String semester) {
 		logger.info("Getting teacher classes for lecturer ID: {} in semester: {}", lecturerId, semester);
-
 		List<Teaching> teachings = teachingRepository.findByLecturerId(lecturerId);
-
-		// Xác định semesterId để lọc (sử dụng semester được truyền vào hoặc lấy mới
-		// nhất)
-		Long targetSemesterId;
-		if (semester != null && !semester.trim().isEmpty()) {
-			// Tìm semesterId từ semester string
-			targetSemesterId = semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
-					.map(s -> s.getId()).findFirst().orElse(1L);
-		} else {
-			targetSemesterId = 1L;
-		}
-
+		Long targetSemesterId = SemesterUtils.resolveSemesterId(semesterRepository, semester, 1L);
 		logger.info("Filtering teacher classes by semesterId: {}", targetSemesterId);
 
 		List<TeacherPortalInfo.TeacherScheduleInfo> teacherClasses = new ArrayList<>();
 		for (Teaching teaching : teachings) {
 			Long courseId = teaching.getCourseId();
 			Long courseSemesterId = courseRepository.findById(courseId).map(Course::getSemesterId).orElse(null);
-
-			// Bỏ qua nếu không thuộc semester được chọn
-			if (!Objects.equals(courseSemesterId, targetSemesterId))
+			if (!Objects.equals(courseSemesterId, targetSemesterId)) {
 				continue;
+			}
 
 			Course course = courseRepository.findById(courseId).orElse(null);
-			if (course == null)
+			if (course == null) {
 				continue;
+			}
 
 			List<StudentInfo> students = getStudentsForCourse(courseId);
-
 			TeacherPortalInfo.TeacherScheduleInfo classInfo = new TeacherPortalInfo.TeacherScheduleInfo(
 					teaching.getId(), course.getId(), course.getCourseCode(), course.getName(), course.getCredit(),
 					teaching.getPeriod(), teaching.getDayOfWeek(), teaching.getClassRoom(), students);
-
 			teacherClasses.add(classInfo);
 		}
 

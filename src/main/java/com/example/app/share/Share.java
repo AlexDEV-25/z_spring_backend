@@ -1,6 +1,7 @@
 package com.example.app.share;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -8,13 +9,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import com.example.app.exception.ResourceNotFoundException;
+import com.example.app.model.Semester;
 import com.example.app.model.User;
 import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.UserRepository;
-import com.example.app.service.StudentPortalService;
 
 public class Share {
-	private static final Logger logger = LoggerFactory.getLogger(StudentPortalService.class);
+	private static final Logger logger = LoggerFactory.getLogger(Share.class);
 
 	public static class SemesterInfo {
 		private Long id;
@@ -219,6 +220,32 @@ public class Share {
 			return "\"" + value.replace("\"", "\"\"") + "\"";
 		}
 		return value;
+	}
+
+	public static final class SemesterUtils {
+		private SemesterUtils() {
+		}
+
+		public static Optional<Semester> findByCode(SemesterRepository semesterRepository, String semester) {
+			if (semesterRepository == null || semester == null || semester.trim().isEmpty()) {
+				return Optional.empty();
+			}
+			return semesterRepository.findAll().stream().filter(s -> semester.equals(s.getSemester())).findFirst();
+		}
+
+		public static Semester requireByCode(SemesterRepository semesterRepository, String semester) {
+			return findByCode(semesterRepository, semester)
+					.orElseThrow(() -> new RuntimeException("Không tìm thấy kỳ học: " + semester));
+		}
+
+		public static Long resolveSemesterId(SemesterRepository semesterRepository, String semester,
+				Long fallbackSemesterId) {
+			return findByCode(semesterRepository, semester).map(Semester::getId).orElse(fallbackSemesterId);
+		}
+
+		public static Long resolveSemesterId(SemesterRepository semesterRepository, String semester) {
+			return resolveSemesterId(semesterRepository, semester, 1L);
+		}
 	}
 
 }

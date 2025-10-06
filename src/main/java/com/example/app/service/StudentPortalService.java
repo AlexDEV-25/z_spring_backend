@@ -38,19 +38,17 @@ import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.share.Share;
 import com.example.app.share.Share.ChangePassword;
+import com.example.app.share.Share.SemesterUtils;
 import com.example.app.share.Share.getAllSemester;
 
-/**
- * Student Portal Service
- */
 @Service
 public class StudentPortalService {
 
 	private static final Logger logger = LoggerFactory.getLogger(StudentPortalService.class);
+	private static final String DEFAULT_SEMESTER = "2024-1";
 
 	private final StudentRepository studentRepository;
 	private final UserRepository userRepository;
-
 	private final EnrollmentRepository enrollmentRepository;
 	private final CourseRepository courseRepository;
 	private final TeachingRepository teachingRepository;
@@ -81,30 +79,31 @@ public class StudentPortalService {
 		this.departmentRepository = departmentRepository;
 	}
 
-	// Lấy danh sách tất cả semesters từ database
 	public List<Share.SemesterInfo> getAllSemesters() {
 		logger.info("Getting all semesters from database");
-		Share.getAllSemester semesters = new getAllSemester(semesterRepository);
+		getAllSemester semesters = new getAllSemester(semesterRepository);
 		return semesters.getAllSemesters();
 	}
 
-	// Hàm lấy semesterId mục tiêu truyền từ FE (1-8)
+	private String normalizeSemester(String semester) {
+		return (semester != null && !semester.trim().isEmpty()) ? semester : DEFAULT_SEMESTER;
+	}
+
+	private Semester requireSemester(String semester) {
+		return SemesterUtils.requireByCode(semesterRepository, normalizeSemester(semester));
+	}
+
 	private Long resolveTargetSemesterId(String semester) {
-		if (semester != null && !semester.trim().isEmpty()) {
-			// Tìm semesterId tương ứng với chuỗi semester truyền vào
-			return semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
-					.map(Semester::getId).findFirst().orElse(1L);
-		}
-		// Nếu không truyền hoặc rỗng, lấy kỳ mới nhất
-		return 1L;
+		String effectiveSemester = normalizeSemester(semester);
+		return SemesterUtils.resolveSemesterId(semesterRepository, effectiveSemester, 1L);
 	}
 
 	// Hàm lấy danh sách enrollment theo sinh viên + kỳ học
 	private List<Enrollment> getEnrolledCoursesBySemester(Long studentId, Long semesterId) {
 		return enrollmentRepository.findByStudentId(studentId).stream().filter(e -> "ENROLLED".equals(e.getStatus()))
-				.filter(e -> {
+				.filter(e -> e.getCourseId() != null).filter(e -> {
 					Course course = courseRepository.findById(e.getCourseId()).orElse(null);
-					return course != null && semesterId.equals(course.getSemesterId());
+					return course != null && Objects.equals(course.getSemesterId(), semesterId);
 				}).collect(Collectors.toList());
 	}
 
@@ -164,18 +163,12 @@ public class StudentPortalService {
 		Student student = getStudentById(studentId);
 		User user = getUserById(student.getUserId());
 
-		// Xác định semesterId để lọc (sử dụng semester được truyền vào)
-		Long targetSemesterId;
-		String targetSemesterString;
-		if (semester != null && !semester.trim().isEmpty()) {
-			// Tìm semesterId từ semester string
-			targetSemesterId = semesterRepository.findAll().stream().filter(s -> s.getSemester().equals(semester))
-					.map(s -> s.getId()).findFirst().orElse(1L);
-			targetSemesterString = semester;
-		} else {
-			targetSemesterId = 1L;
-			targetSemesterString = "2024-1";
-		}
+		String effectiveSemester = normalizeSemester(semester);
+		Optional<Semester> semesterOpt = SemesterUtils.findByCode(semesterRepository, effectiveSemester);
+		Long targetSemesterId = semesterOpt.map(Semester::getId)
+				.orElseGet(() -> SemesterUtils.resolveSemesterId(semesterRepository, effectiveSemester, 1L));
+		String targetSemesterString = semesterOpt.map(Semester::getSemester).orElseGet(() -> semesterRepository
+				.findById(targetSemesterId).map(Semester::getSemester).orElse(effectiveSemester));
 
 		logger.info("Filtering grades by semesterId: {} ({})", targetSemesterId, targetSemesterString);
 
@@ -225,11 +218,7 @@ public class StudentPortalService {
 		logger.info("Registering course {} for student ID: {}", courseId, studentId);
 
 		try {
-			Semester semesterEntity = getSemesterBySemesterString(semester);
-			if (semesterEntity == null) {
-				return new StudentPortalInfo.CourseRegistrationResponse(false,
-						"Không tìm thấy thông tin học kỳ " + semester);
-			}
+			Semester semesterEntity = requireSemester(normalizeSemester(semester));
 
 			Optional<Payment> existingPayment = paymentRepository.findByStudentIdAndSemesterId(studentId,
 					semesterEntity.getId());
@@ -303,13 +292,10 @@ public class StudentPortalService {
 	public StudentPortalInfo.PaymentInfo getPaymentInfo(Long studentId, String semester) {
 		logger.info("Getting payment info for student ID: {} in semester: {}", studentId, semester);
 
-		try {
-			// Lấy thông tin semester
-			Semester semesterEntity = getSemesterBySemesterString(semester);
+		String effectiveSemester = normalizeSemester(semester);
 
-			if (semesterEntity == null) {
-				throw new RuntimeException("Không tìm thấy semester: " + semester);
-			}
+		try {
+			Semester semesterEntity = requireSemester(effectiveSemester);
 
 			// Lấy danh sách enrollments (bao gồm cả PENDING_PAYMENT và ENROLLED) của sinh
 			// viên trong semester này
