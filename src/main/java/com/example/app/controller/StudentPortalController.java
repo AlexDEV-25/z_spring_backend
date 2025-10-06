@@ -13,7 +13,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -57,6 +59,25 @@ public class StudentPortalController {
 		this.semesterRepository = semesterRepository;
 		this.paymentRepository = paymentRepository;
 		this.userService = userService;
+	}
+
+	/**
+	 * Hủy đăng ký môn học
+	 */
+	@DeleteMapping("/courses/{courseId}")
+	public ResponseEntity<StudentPortalInfo.CourseRegistrationResponse> unregisterCourse(@PathVariable Long courseId) {
+		try {
+			Long studentId = getCurrentStudentId();
+			logger.info("Unregistering course {} for student ID: {}", courseId, studentId);
+
+			StudentPortalInfo.CourseRegistrationResponse response = studentPortalService.unregisterCourse(studentId,
+					courseId);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			logger.error("Error unregistering course: ", e);
+			return ResponseEntity.badRequest().body(new StudentPortalInfo.CourseRegistrationResponse(false,
+					"Lỗi hủy đăng ký môn học: " + e.getMessage()));
+		}
 	}
 
 	/**
