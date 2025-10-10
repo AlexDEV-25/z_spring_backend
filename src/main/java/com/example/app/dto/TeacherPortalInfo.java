@@ -15,6 +15,7 @@ public class TeacherPortalInfo {
 		private String dayOfWeek;
 		private String classroom;
 		private List<StudentInfo> students;
+		private Integer gradedCount; // Số sinh viên đã có điểm - Backend tính sẵn
 
 		public TeacherScheduleInfo() {
 		}
@@ -102,6 +103,14 @@ public class TeacherPortalInfo {
 
 		public void setStudents(List<StudentInfo> students) {
 			this.students = students;
+		}
+
+		public Integer getGradedCount() {
+			return gradedCount;
+		}
+
+		public void setGradedCount(Integer gradedCount) {
+			this.gradedCount = gradedCount;
 		}
 	}
 

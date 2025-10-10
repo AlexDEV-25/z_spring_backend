@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.dto.UserDTO;
@@ -54,5 +55,16 @@ public class UserController {
 			userService.deleteUser(id);
 			return ResponseEntity.noContent().<Void>build();
 		}).orElse(ResponseEntity.notFound().build());
+	}
+
+	// Lấy danh sách users có thể assign làm sinh viên - Backend filter sẵn
+	@GetMapping("/available-for-student")
+	public ResponseEntity<List<UserDTO>> getAvailableUsersForStudent(@RequestParam(required = false) Long excludeStudentId) {
+		try {
+			List<UserDTO> availableUsers = userService.getAvailableUsersForStudent(excludeStudentId);
+			return ResponseEntity.ok(availableUsers);
+		} catch (Exception e) {
+			return ResponseEntity.internalServerError().build();
+		}
 	}
 }

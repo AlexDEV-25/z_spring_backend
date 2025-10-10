@@ -237,4 +237,50 @@ public class EnrollmentService {
 		}
 	}
 
+	// Tính toán statistics cho scholarship candidates - Backend xử lý thay vì frontend
+	public PrincipalPortalInfo.ScholarshipStatistics getScholarshipStatistics(Long departmentId, String semester) {
+		List<PrincipalPortalInfo.ScholarshipCandidate> candidates = getStudentsEligibleForScholarship(departmentId, semester);
+		
+		if (candidates.isEmpty()) {
+			return new PrincipalPortalInfo.ScholarshipStatistics(0, 0.0, 0.0, 0.0, 0);
+		}
+
+		// Tính toán statistics
+		int totalCandidates = candidates.size();
+		
+		// GPA trung bình
+		double averageGPA = candidates.stream()
+			.mapToDouble(PrincipalPortalInfo.ScholarshipCandidate::getGpa)
+			.average()
+			.orElse(0.0);
+		
+		// GPA cao nhất
+		double topGPA = candidates.stream()
+			.mapToDouble(PrincipalPortalInfo.ScholarshipCandidate::getGpa)
+			.max()
+			.orElse(0.0);
+		
+		// Tỷ lệ hoàn thành trung bình
+		double averageCompletionRate = candidates.stream()
+			.mapToDouble(candidate -> {
+				if (candidate.getTotalCredits() == 0) return 0.0;
+				return (double) candidate.getCompletedCredits() / candidate.getTotalCredits() * 100;
+			})
+			.average()
+			.orElse(0.0);
+		
+		// Số sinh viên đủ điều kiện học bổng (GPA >= 3.6)
+		int totalEligibleForScholarship = (int) candidates.stream()
+			.filter(candidate -> candidate.getEligibleForScholarship() != null && candidate.getEligibleForScholarship())
+			.count();
+
+		return new PrincipalPortalInfo.ScholarshipStatistics(
+			totalCandidates, 
+			Math.round(averageGPA * 100.0) / 100.0, // Round to 2 decimal places
+			Math.round(topGPA * 100.0) / 100.0,
+			Math.round(averageCompletionRate * 100.0) / 100.0,
+			totalEligibleForScholarship
+		);
+	}
+
 }

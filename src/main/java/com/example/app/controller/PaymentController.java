@@ -34,13 +34,15 @@ public class PaymentController {
 		this.paymentService = paymentService;
 	}
 
-	// Lấy tất cả payments
+	// Lấy tất cả payments với filtering từ backend
 	@GetMapping
 	public ResponseEntity<List<PrincipalPortalInfo.PaymentWithDetails>> getAllPayments(
-			@RequestParam(required = false) String status, @RequestParam(required = false) String semester) {
+			@RequestParam(required = false) String status, 
+			@RequestParam(required = false) String semester,
+			@RequestParam(required = false) String search) {
 		try {
-			logger.info("Getting all payments with status: {} and semester: {}", status, semester);
-			List<PrincipalPortalInfo.PaymentWithDetails> payments = paymentService.getAllPayments(status, semester);
+			logger.info("Getting all payments with status: {}, semester: {}, search: {}", status, semester, search);
+			List<PrincipalPortalInfo.PaymentWithDetails> payments = paymentService.getAllPayments(status, semester, search);
 			return ResponseEntity.ok(payments);
 		} catch (Exception e) {
 			logger.error("Error getting all payments", e);

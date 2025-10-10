@@ -54,9 +54,9 @@ public class PaymentService {
 		this.userRepository = userRepository;
 	}
 
-	// Lấy tất cả payments của tất cả sinh viên
-	public List<PaymentWithDetails> getAllPayments(String status, String semester) {
-		logger.info("Getting all payments with status: {} and semester: {}", status, semester);
+	// Lấy tất cả payments của tất cả sinh viên với filtering từ backend
+	public List<PaymentWithDetails> getAllPayments(String status, String semester, String search) {
+		logger.info("Getting all payments with status: {}, semester: {}, search: {}", status, semester, search);
 
 		try {
 			List<Payment> payments = paymentRepository.findAll();
@@ -65,12 +65,47 @@ public class PaymentService {
 			payments.sort((p1, p2) -> p2.getPaymentDate().compareTo(p1.getPaymentDate()));
 
 			// Convert to PaymentWithDetails with additional info
-			return payments.stream().map(this::convertToPaymentWithDetails).collect(Collectors.toList());
+			List<PaymentWithDetails> paymentDetails = payments.stream()
+				.map(this::convertToPaymentWithDetails)
+				.collect(Collectors.toList());
+
+			// Apply filters từ backend thay vì frontend
+			return paymentDetails.stream()
+				.filter(payment -> {
+					// Filter by status
+					if (status != null && !status.trim().isEmpty() && !payment.getStatus().equals(status)) {
+						return false;
+					}
+					
+					// Filter by semester
+					if (semester != null && !semester.trim().isEmpty() && !payment.getSemesterName().equals(semester)) {
+						return false;
+					}
+					
+					// Filter by search term (student code hoặc payment ID)
+					if (search != null && !search.trim().isEmpty()) {
+						String searchLower = search.toLowerCase();
+						String studentCode = payment.getStudentCode() != null ? payment.getStudentCode().toLowerCase() : "";
+						String paymentId = payment.getId().toString();
+						
+						if (!studentCode.contains(searchLower) && !paymentId.contains(searchLower)) {
+							return false;
+						}
+					}
+					
+					return true;
+				})
+				.collect(Collectors.toList());
 
 		} catch (Exception e) {
 			logger.error("Error getting payments with filters", e);
 			throw new RuntimeException("Lỗi khi lấy danh sách payments: " + e.getMessage());
 		}
+	}
+
+	// Overload method để backward compatibility
+	public List<PaymentWithDetails> getAllPayments(String status, String semester) {
+		return getAllPayments(status, semester, null);
 	}
 
 	//

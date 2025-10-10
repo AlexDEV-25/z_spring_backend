@@ -591,4 +591,66 @@ public class PrincipalPortalInfo {
 			return completedCredits;
 		}
 	}
+
+	// Statistics cho scholarship candidates
+	public static class ScholarshipStatistics {
+		private int totalCandidates;
+		private double averageGPA;
+		private double topGPA;
+		private double averageCompletionRate;
+		private int totalEligibleForScholarship;
+
+		public ScholarshipStatistics() {
+		}
+
+		public ScholarshipStatistics(int totalCandidates, double averageGPA, double topGPA, 
+				double averageCompletionRate, int totalEligibleForScholarship) {
+			this.totalCandidates = totalCandidates;
+			this.averageGPA = averageGPA;
+			this.topGPA = topGPA;
+			this.averageCompletionRate = averageCompletionRate;
+			this.totalEligibleForScholarship = totalEligibleForScholarship;
+		}
+
+		// Getters and Setters
+		public int getTotalCandidates() {
+			return totalCandidates;
+		}
+
+		public void setTotalCandidates(int totalCandidates) {
+			this.totalCandidates = totalCandidates;
+		}
+
+		public double getAverageGPA() {
+			return averageGPA;
+		}
+
+		public void setAverageGPA(double averageGPA) {
+			this.averageGPA = averageGPA;
+		}
+
+		public double getTopGPA() {
+			return topGPA;
+		}
+
+		public void setTopGPA(double topGPA) {
+			this.topGPA = topGPA;
+		}
+
+		public double getAverageCompletionRate() {
+			return averageCompletionRate;
+		}
+
+		public void setAverageCompletionRate(double averageCompletionRate) {
+			this.averageCompletionRate = averageCompletionRate;
+		}
+
+		public int getTotalEligibleForScholarship() {
+			return totalEligibleForScholarship;
+		}
+
+		public void setTotalEligibleForScholarship(int totalEligibleForScholarship) {
+			this.totalEligibleForScholarship = totalEligibleForScholarship;
+		}
+	}
 }

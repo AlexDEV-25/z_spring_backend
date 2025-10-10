@@ -71,6 +71,22 @@ public class EnrollmentController {
 		}
 	}
 
+	// Lấy statistics của scholarship candidates (GPA trung bình, cao nhất, etc.)
+	@GetMapping("/scholarships/statistics")
+	public ResponseEntity<PrincipalPortalInfo.ScholarshipStatistics> getScholarshipStatistics(
+			@RequestParam(required = false) Long departmentId, @RequestParam(required = false) String semester) {
+		try {
+			logger.info("Getting scholarship statistics - Department: {}, Semester: {}", departmentId, semester);
+
+			PrincipalPortalInfo.ScholarshipStatistics stats = enrollmentService
+					.getScholarshipStatistics(departmentId, semester);
+			return ResponseEntity.ok(stats);
+		} catch (Exception e) {
+			logger.error("Error getting scholarship statistics", e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
 	// Xuất danh sách học bổng ra CSV
 	@GetMapping("/scholarships/export")
 	public ResponseEntity<byte[]> exportScholarshipList(@RequestParam(required = false) Long departmentId,

@@ -97,4 +97,54 @@ public class UserService {
 
 		userRepository.deleteById(id);
 	}
+
+	// Lấy danh sách users có thể assign làm sinh viên - Backend filter thay vì frontend
+	public List<UserDTO> getAvailableUsersForStudent(Long excludeStudentId) {
+		// Lấy tất cả users có role = 3 (ROLE_SINH_VIEN)
+		List<User> allUsers = userRepository.findAll();
+		
+		// Lấy danh sách user IDs đã được assign làm sinh viên
+		List<Student> allStudents = studentService.getAllStudents().stream()
+			.map(dto -> {
+				Student student = new Student();
+				student.setId(dto.getId());
+				student.setUserId(dto.getUserId());
+				return student;
+			})
+			.collect(Collectors.toList());
+		List<Long> assignedUserIds = allStudents.stream()
+			.map(Student::getUserId)
+			.filter(userId -> userId != null)
+			.collect(Collectors.toList());
+		
+		// Nếu có excludeStudentId, lấy userId của student đó để cho phép chọn lại
+		Long currentUserId = null;
+		if (excludeStudentId != null) {
+			Optional<Student> currentStudent = allStudents.stream()
+				.filter(s -> s.getId().equals(excludeStudentId))
+				.findFirst();
+			if (currentStudent.isPresent()) {
+				currentUserId = currentStudent.get().getUserId();
+			}
+		}
+		
+		final Long allowedUserId = currentUserId;
+		
+		// Filter users: role = 3 AND (chưa được assign HOẶC là current user)
+		return allUsers.stream()
+			.filter(user -> {
+				// Phải có role = 3 (ROLE_SINH_VIEN)
+				if (user.getRoleId() == null || !user.getRoleId().equals(3L)) {
+					return false;
+				}
+				
+				// Chưa được assign HOẶC là current user được phép chọn lại
+				boolean isAssigned = assignedUserIds.contains(user.getId());
+				boolean isCurrentUser = allowedUserId != null && user.getId().equals(allowedUserId);
+				
+				return !isAssigned || isCurrentUser;
+			})
+			.map(this::convertToDTO)
+			.collect(Collectors.toList());
+	}
 }

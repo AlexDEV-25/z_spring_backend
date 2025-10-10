@@ -88,16 +88,25 @@ public class TeacherPortalService {
 			if (!Objects.equals(courseSemesterId, targetSemesterId)) {
 				continue;
 			}
-
 			Course course = courseRepository.findById(courseId).orElse(null);
 			if (course == null) {
 				continue;
 			}
 
 			List<StudentInfo> students = getStudentsForCourse(courseId);
+			
+			// Tính số sinh viên đã có điểm - Backend xử lý thay vì frontend
+			int gradedCount = (int) students.stream()
+				.filter(student -> student.getGrade() != null && !student.getGrade().trim().isEmpty())
+				.count();
+			
 			TeacherPortalInfo.TeacherScheduleInfo classInfo = new TeacherPortalInfo.TeacherScheduleInfo(
 					teaching.getId(), course.getId(), course.getCourseCode(), course.getName(), course.getCredit(),
 					teaching.getPeriod(), teaching.getDayOfWeek(), teaching.getClassRoom(), students);
+			
+			// Set gradedCount từ backend
+			classInfo.setGradedCount(gradedCount);
+			
 			teacherClasses.add(classInfo);
 		}
 
