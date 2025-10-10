@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -156,58 +158,86 @@ public class StudentPortalService {
 				semester, totalCredits, scheduleItems);
 	}
 
-	// Lấy bảng điểm của sinh viên (theo học phần đã đăng ký của semester được chọn)
+	// Lấy bảng điểm của sinh viên. Nếu không truyền semester sẽ trả về tất cả học phần đã đăng ký
 	public StudentPortalInfo.StudentGradesInfo getStudentGrades(Long studentId, String semester) {
 		logger.info("Getting grades for student ID: {} in semester: {}", studentId, semester);
 
 		Student student = getStudentById(studentId);
 		User user = getUserById(student.getUserId());
 
-		String effectiveSemester = normalizeSemester(semester);
-		Optional<Semester> semesterOpt = SemesterUtils.findByCode(semesterRepository, effectiveSemester);
-		Long targetSemesterId = semesterOpt.map(Semester::getId)
-				.orElseGet(() -> SemesterUtils.resolveSemesterId(semesterRepository, effectiveSemester, 1L));
-		String targetSemesterString = semesterOpt.map(Semester::getSemester).orElseGet(() -> semesterRepository
-				.findById(targetSemesterId).map(Semester::getSemester).orElse(effectiveSemester));
+		final boolean filterBySemester = semester != null && !semester.trim().isEmpty();
+		final String effectiveSemester = filterBySemester ? normalizeSemester(semester) : null;
+		final Optional<Semester> semesterOpt = filterBySemester
+				? SemesterUtils.findByCode(semesterRepository, effectiveSemester)
+				: Optional.empty();
+		final Long targetSemesterId = filterBySemester
+				? semesterOpt.map(Semester::getId)
+						.orElseGet(() -> SemesterUtils.resolveSemesterId(semesterRepository, effectiveSemester, 1L))
+				: null;
+		final String targetSemesterCode = filterBySemester
+				? semesterOpt.map(Semester::getSemester)
+						.orElseGet(() -> semesterRepository.findById(targetSemesterId).map(Semester::getSemester)
+								.orElse(effectiveSemester))
+				: null;
 
-		logger.info("Filtering grades by semesterId: {} ({})", targetSemesterId, targetSemesterString);
+		if (filterBySemester) {
+			logger.info("Filtering grades by semesterId: {} ({})", targetSemesterId, targetSemesterCode);
+		}
 
-		// Lấy danh sách enrollment của sinh viên
 		List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId);
+		Map<Long, String> semesterCodeCache = new HashMap<>();
 
-		// Chuyển đổi thành grade items, chỉ lấy courses thuộc semester được chọn
 		List<StudentPortalInfo.GradeItem> gradeItems = enrollments.stream().map(enrollment -> {
 			Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
-			if (course == null)
-				return null;
-
-			// Lọc chỉ lấy courses thuộc semester được chọn
-			if (course.getSemesterId() == null || !course.getSemesterId().equals(targetSemesterId)) {
+			if (course == null) {
 				return null;
 			}
 
-			return new StudentPortalInfo.GradeItem(course.getId(), course.getCourseCode(), course.getName(),
-					course.getCredit(), enrollment.getComponentScore1(), // Lấy điểm thành phần 1
-					enrollment.getComponentScore2(), // Lấy điểm thành phần 2
-					enrollment.getFinalExamScore(), // Lấy điểm thi cuối kỳ
-					enrollment.getTotalScore(), // Lấy điểm tổng kết
-					enrollment.getScoreCoefficient4(), // Lấy điểm hệ số 4
-					enrollment.getGrade(), targetSemesterString, // semester thực tế
-					enrollment.getGrade() != null ? "Đã hoàn thành" : "Đang học");
-		}).filter(item -> item != null).collect(Collectors.toList());
+			Long courseSemesterId = course.getSemesterId();
+			if (filterBySemester) {
+				if (courseSemesterId == null || !courseSemesterId.equals(targetSemesterId)) {
+					return null;
+				}
+			}
 
-		// Tính toán GPA và credits
+			String semesterCode;
+			if (filterBySemester) {
+				semesterCode = targetSemesterCode != null ? targetSemesterCode : effectiveSemester;
+			} else {
+				if (courseSemesterId != null) {
+					semesterCode = semesterCodeCache.computeIfAbsent(courseSemesterId, id -> semesterRepository.findById(id)
+							.map(Semester::getSemester).orElse(DEFAULT_SEMESTER));
+				} else {
+					semesterCode = DEFAULT_SEMESTER;
+				}
+			}
+
+			String status;
+			if (enrollment.getGrade() != null) {
+				status = "Đã hoàn thành";
+			} else if ("PENDING_PAYMENT".equalsIgnoreCase(enrollment.getStatus())) {
+				status = "Chờ thanh toán";
+			} else {
+				status = "Đang học";
+			}
+
+			return new StudentPortalInfo.GradeItem(course.getId(), course.getCourseCode(), course.getName(),
+					course.getCredit(), enrollment.getComponentScore1(), enrollment.getComponentScore2(),
+					enrollment.getFinalExamScore(), enrollment.getTotalScore(), enrollment.getScoreCoefficient4(),
+					enrollment.getGrade(), semesterCode, status);
+		}).filter(Objects::nonNull).collect(Collectors.toList());
+
 		int totalCredits = gradeItems.stream().mapToInt(StudentPortalInfo.GradeItem::getCredit).sum();
 		int completedCredits = gradeItems.stream().filter(item -> item.getGrade() != null)
 				.mapToInt(StudentPortalInfo.GradeItem::getCredit).sum();
 
-		double gpa = 0; // Mock GPA - sẽ implement sau
+		double gpa = 0; // TODO: implement GPA calculation
 
-		// Tính statistics
 		int totalCourses = gradeItems.size();
-		int completedCourses = (int) gradeItems.stream().filter(item -> "Đã hoàn thành".equals(item.getStatus()))
+		int completedCourses = (int) gradeItems.stream().filter(item -> "Đã hoàn thành".equals(item.getStatus())).count();
+		int inProgressCourses = (int) gradeItems.stream()
+				.filter(item -> "Đang học".equals(item.getStatus()) || "Chờ thanh toán".equals(item.getStatus()))
 				.count();
-		int inProgressCourses = (int) gradeItems.stream().filter(item -> "Đang học".equals(item.getStatus())).count();
 
 		return new StudentPortalInfo.StudentGradesInfo(studentId, student.getStudentCode(), user.getFullName(), gpa,
 				totalCredits, completedCredits, gradeItems, totalCourses, completedCourses, inProgressCourses);
