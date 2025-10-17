@@ -17,8 +17,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.dto.PaymentDTO;
+import com.example.app.dto.PaymentDetailDTO;
 import com.example.app.dto.PrincipalPortalInfo;
 import com.example.app.model.Payment;
+import com.example.app.service.PaymentDetailService;
 import com.example.app.service.PaymentService;
 
 @RestController
@@ -29,20 +31,22 @@ public class PaymentController {
 	private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
 	private final PaymentService paymentService;
+	private final PaymentDetailService paymentDetailService;
 
-	public PaymentController(PaymentService paymentService) {
+	public PaymentController(PaymentService paymentService, PaymentDetailService paymentDetailService) {
 		this.paymentService = paymentService;
+		this.paymentDetailService = paymentDetailService;
 	}
 
 	// Lấy tất cả payments với filtering từ backend
 	@GetMapping
 	public ResponseEntity<List<PrincipalPortalInfo.PaymentWithDetails>> getAllPayments(
-			@RequestParam(required = false) String status, 
-			@RequestParam(required = false) String semester,
+			@RequestParam(required = false) String status, @RequestParam(required = false) String semester,
 			@RequestParam(required = false) String search) {
 		try {
 			logger.info("Getting all payments with status: {}, semester: {}, search: {}", status, semester, search);
-			List<PrincipalPortalInfo.PaymentWithDetails> payments = paymentService.getAllPayments(status, semester, search);
+			List<PrincipalPortalInfo.PaymentWithDetails> payments = paymentService.getAllPayments(status, semester,
+					search);
 			return ResponseEntity.ok(payments);
 		} catch (Exception e) {
 			logger.error("Error getting all payments", e);
@@ -137,6 +141,23 @@ public class PaymentController {
 			return ResponseEntity.ok().headers(headers).body(csvData);
 		} catch (Exception e) {
 			logger.error("Error exporting payments", e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
+	// ==================== PAYMENT DETAILS ENDPOINTS ====================
+
+	/**
+	 * Lấy payment details theo payment ID
+	 */
+	@GetMapping("/{paymentId}/details")
+	public ResponseEntity<List<PaymentDetailDTO>> getPaymentDetails(@PathVariable Long paymentId) {
+		try {
+			logger.info("Getting payment details for payment ID: {}", paymentId);
+			List<PaymentDetailDTO> details = paymentDetailService.getPaymentDetailsByPaymentId(paymentId);
+			return ResponseEntity.ok(details);
+		} catch (Exception e) {
+			logger.error("Error getting payment details for payment ID: {}", paymentId, e);
 			return ResponseEntity.internalServerError().build();
 		}
 	}

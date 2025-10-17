@@ -159,7 +159,7 @@ public class PrincipalPortalInfo {
 		}
 	}
 
-	// chi tiết payment
+	// chi tiết payment - Sử DỤNG PaymentDetailDTO
 	public static class PaymentDetailResponse {
 		private Long id;
 		private Long studentId;
@@ -169,14 +169,14 @@ public class PrincipalPortalInfo {
 		private String semesterName;
 		private String paymentDate;
 		private String status;
-		private List<CoursePaymentDetail> courses;
+		private List<com.example.app.dto.PaymentDetailDTO> paymentDetails; // THAY ĐỔI
 		private double totalAmount;
 
 		public PaymentDetailResponse() {
 		}
 
 		public PaymentDetailResponse(Long id, Long studentId, String studentName, String studentClass, Long semesterId,
-				String semesterName, String paymentDate, String status, List<CoursePaymentDetail> courses,
+				String semesterName, String paymentDate, String status, List<com.example.app.dto.PaymentDetailDTO> paymentDetails,
 				double totalAmount) {
 			this.id = id;
 			this.studentId = studentId;
@@ -186,7 +186,7 @@ public class PrincipalPortalInfo {
 			this.semesterName = semesterName;
 			this.paymentDate = paymentDate;
 			this.status = status;
-			this.courses = courses;
+			this.paymentDetails = paymentDetails;
 			this.totalAmount = totalAmount;
 		}
 
@@ -255,12 +255,12 @@ public class PrincipalPortalInfo {
 			this.status = status;
 		}
 
-		public List<CoursePaymentDetail> getCourses() {
-			return courses;
+		public List<com.example.app.dto.PaymentDetailDTO> getPaymentDetails() {
+			return paymentDetails;
 		}
 
-		public void setCourses(List<CoursePaymentDetail> courses) {
-			this.courses = courses;
+		public void setPaymentDetails(List<com.example.app.dto.PaymentDetailDTO> paymentDetails) {
+			this.paymentDetails = paymentDetails;
 		}
 
 		public double getTotalAmount() {
@@ -272,66 +272,7 @@ public class PrincipalPortalInfo {
 		}
 	}
 
-	// chi tiết học phần đã học
-	public static class CoursePaymentDetail {
-		private Long courseId;
-		private String courseCode;
-		private String courseName;
-		private Integer credits;
-		private double fee;
-
-		public CoursePaymentDetail() {
-		}
-
-		public CoursePaymentDetail(Long courseId, String courseCode, String courseName, Integer credits, double fee) {
-			this.courseId = courseId;
-			this.courseCode = courseCode;
-			this.courseName = courseName;
-			this.credits = credits;
-			this.fee = fee;
-		}
-
-		// Getters and setters
-		public Long getCourseId() {
-			return courseId;
-		}
-
-		public void setCourseId(Long courseId) {
-			this.courseId = courseId;
-		}
-
-		public String getCourseCode() {
-			return courseCode;
-		}
-
-		public void setCourseCode(String courseCode) {
-			this.courseCode = courseCode;
-		}
-
-		public String getCourseName() {
-			return courseName;
-		}
-
-		public void setCourseName(String courseName) {
-			this.courseName = courseName;
-		}
-
-		public Integer getCredits() {
-			return credits;
-		}
-
-		public void setCredits(Integer credits) {
-			this.credits = credits;
-		}
-
-		public double getFee() {
-			return fee;
-		}
-
-		public void setFee(double fee) {
-			this.fee = fee;
-		}
-	}
+	// CoursePaymentDetail đã bị XÓA - Sử dụng PaymentDetailDTO thay thế
 
 	// payment
 	public static class PaymentWithDetails {
@@ -603,7 +544,7 @@ public class PrincipalPortalInfo {
 		public ScholarshipStatistics() {
 		}
 
-		public ScholarshipStatistics(int totalCandidates, double averageGPA, double topGPA, 
+		public ScholarshipStatistics(int totalCandidates, double averageGPA, double topGPA,
 				double averageCompletionRate, int totalEligibleForScholarship) {
 			this.totalCandidates = totalCandidates;
 			this.averageGPA = averageGPA;

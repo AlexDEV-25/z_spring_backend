@@ -3,7 +3,6 @@ package com.example.app.service;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -12,19 +11,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.example.app.dto.PaymentDTO;
+import com.example.app.dto.PaymentDetailDTO;
 import com.example.app.dto.PrincipalPortalInfo;
 import com.example.app.dto.PrincipalPortalInfo.PaymentDetailResponse;
 import com.example.app.dto.PrincipalPortalInfo.PaymentStatistics;
 import com.example.app.dto.PrincipalPortalInfo.PaymentWithDetails;
 import com.example.app.enumvalue.Status;
-import com.example.app.model.Course;
-import com.example.app.model.Enrollment;
 import com.example.app.model.Payment;
 import com.example.app.model.Semester;
 import com.example.app.model.Student;
 import com.example.app.model.User;
-import com.example.app.repository.CourseRepository;
-import com.example.app.repository.EnrollmentRepository;
 import com.example.app.repository.PaymentRepository;
 import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.StudentRepository;
@@ -37,21 +33,19 @@ public class PaymentService {
 	private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
 
 	private final PaymentRepository paymentRepository;
-	private final EnrollmentRepository enrollmentRepository;
-	private final CourseRepository courseRepository;
 	private final SemesterRepository semesterRepository;
 	private final StudentRepository studentRepository;
 	private final UserRepository userRepository;
+	private final PaymentDetailService paymentDetailService;
 
-	public PaymentService(PaymentRepository paymentRepository, EnrollmentRepository enrollmentRepository,
-			CourseRepository courseRepository, SemesterRepository semesterRepository,
-			StudentRepository studentRepository, UserRepository userRepository) {
+	public PaymentService(PaymentRepository paymentRepository, SemesterRepository semesterRepository,
+			StudentRepository studentRepository, UserRepository userRepository,
+			PaymentDetailService paymentDetailService) {
 		this.paymentRepository = paymentRepository;
-		this.enrollmentRepository = enrollmentRepository;
-		this.courseRepository = courseRepository;
 		this.semesterRepository = semesterRepository;
 		this.studentRepository = studentRepository;
 		this.userRepository = userRepository;
+		this.paymentDetailService = paymentDetailService;
 	}
 
 	// Lấy tất cả payments của tất cả sinh viên với filtering từ backend
@@ -65,37 +59,34 @@ public class PaymentService {
 			payments.sort((p1, p2) -> p2.getPaymentDate().compareTo(p1.getPaymentDate()));
 
 			// Convert to PaymentWithDetails with additional info
-			List<PaymentWithDetails> paymentDetails = payments.stream()
-				.map(this::convertToPaymentWithDetails)
-				.collect(Collectors.toList());
+			List<PaymentWithDetails> paymentDetails = payments.stream().map(this::convertToPaymentWithDetails)
+					.collect(Collectors.toList());
 
 			// Apply filters từ backend thay vì frontend
-			return paymentDetails.stream()
-				.filter(payment -> {
-					// Filter by status
-					if (status != null && !status.trim().isEmpty() && !payment.getStatus().equals(status)) {
+			return paymentDetails.stream().filter(payment -> {
+				// Filter by status
+				if (status != null && !status.trim().isEmpty() && !payment.getStatus().equals(status)) {
+					return false;
+				}
+
+				// Filter by semester
+				if (semester != null && !semester.trim().isEmpty() && !payment.getSemesterName().equals(semester)) {
+					return false;
+				}
+
+				// Filter by search term (student code hoặc payment ID)
+				if (search != null && !search.trim().isEmpty()) {
+					String searchLower = search.toLowerCase();
+					String studentCode = payment.getStudentCode() != null ? payment.getStudentCode().toLowerCase() : "";
+					String paymentId = payment.getId().toString();
+
+					if (!studentCode.contains(searchLower) && !paymentId.contains(searchLower)) {
 						return false;
 					}
-					
-					// Filter by semester
-					if (semester != null && !semester.trim().isEmpty() && !payment.getSemesterName().equals(semester)) {
-						return false;
-					}
-					
-					// Filter by search term (student code hoặc payment ID)
-					if (search != null && !search.trim().isEmpty()) {
-						String searchLower = search.toLowerCase();
-						String studentCode = payment.getStudentCode() != null ? payment.getStudentCode().toLowerCase() : "";
-						String paymentId = payment.getId().toString();
-						
-						if (!studentCode.contains(searchLower) && !paymentId.contains(searchLower)) {
-							return false;
-						}
-					}
-					
-					return true;
-				})
-				.collect(Collectors.toList());
+				}
+
+				return true;
+			}).collect(Collectors.toList());
 
 		} catch (Exception e) {
 			logger.error("Error getting payments with filters", e);
@@ -168,7 +159,7 @@ public class PaymentService {
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy payment với ID: " + id));
 	}
 
-	// Lấy chi tiết payment
+	// Lấy chi tiết payment - SỬ DỤNG PaymentDetailService
 	public PaymentDetailResponse getPaymentDetail(Long paymentId) {
 		logger.info("Getting payment detail for ID: {}", paymentId);
 
@@ -177,8 +168,6 @@ public class PaymentService {
 
 			// Lấy thông tin sinh viên
 			Student student = studentRepository.findById(dto.getStudentId()).orElse(null);
-
-			// Lấy thông tin user để lấy fullname
 			User user = null;
 			if (student != null) {
 				user = userRepository.findById(student.getUserId()).orElse(null);
@@ -187,30 +176,19 @@ public class PaymentService {
 			// Lấy thông tin semester
 			Semester semester = semesterRepository.findById(dto.getSemesterId()).orElse(null);
 
-			// Lấy danh sách enrollments và courses
-			String semesterString = semester != null ? semester.getSemester() : "";
-			List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(dto.getStudentId(),
-					semesterString);
+			// SỬ DỤNG PaymentDetailService để lấy chi tiết - KHÔNG CONVERT
+			List<PaymentDetailDTO> paymentDetails = paymentDetailService.getPaymentDetailsByPaymentId(paymentId);
 
-			List<PrincipalPortalInfo.CoursePaymentDetail> courseDetails = new ArrayList<>();
-			double totalAmount = 0;
-
-			for (Enrollment enrollment : enrollments) {
-				Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
-				if (course != null) {
-					double fee = course.getFee() != null ? course.getFee().doubleValue() : 0;
-					courseDetails.add(new PrincipalPortalInfo.CoursePaymentDetail(course.getId(),
-							course.getCourseCode(), course.getName(), course.getCredit(), fee));
-					totalAmount += fee;
-				}
-			}
+			// Tính tổng từ PaymentDetailDTO - KHÔNG CẦN CONVERT
+			double totalAmount = paymentDetails.stream()
+					.mapToDouble(detail -> detail.getFee() != null ? detail.getFee().doubleValue() : 0).sum();
 
 			return new PaymentDetailResponse(dto.getId(), dto.getStudentId(),
 					user != null ? user.getFullName()
 							: (student != null ? "Sinh viên " + student.getStudentCode() : "N/A"),
 					student != null ? "CNTT" + (student.getId() % 10 + 1) : "N/A", dto.getSemesterId(),
 					semester != null ? semester.getSemester() : "N/A", dto.getPaymentDate().toString(),
-					dto.getStatus().toString(), courseDetails, totalAmount);
+					dto.getStatus().toString(), paymentDetails, totalAmount);
 
 		} catch (Exception e) {
 			logger.error("Error getting payment detail for ID: {}", paymentId, e);
@@ -218,7 +196,7 @@ public class PaymentService {
 		}
 	}
 
-	// Cập nhật trạng thái thanh toán vào DB
+	// Cập nhật trạng thái thanh toán vào DB - CẬP NHẬT CẢ PAYMENT DETAILS
 	public PaymentDTO updatePaymentStatus(Long paymentId, String newStatus, String reason) {
 		logger.info("Updating payment status for ID: {} to status: {} with reason: {}", paymentId, newStatus, reason);
 
@@ -243,6 +221,9 @@ public class PaymentService {
 			}
 
 			Payment updatedPayment = paymentRepository.save(convertToEntity(dto));
+
+			// KHÔNG CẦN cập nhật payment_details vì chỉ lưu ID
+			// Status được lấy từ payment khi JOIN
 
 			logger.info("Payment status updated successfully. ID: {}, Old status: {}, New status: {}", paymentId,
 					oldStatus, status);
@@ -316,29 +297,15 @@ public class PaymentService {
 		}
 	}
 
-	// Tính toán số tiền của một payment dựa trên enrollments
+	// Tính toán số tiền của một payment - SỬ DỤNG PaymentDetailService
 	private double calculatePaymentAmount(Payment payment) {
 		try {
-			// Get semester string from payment's semesterId
-			Semester semester = semesterRepository.findById(payment.getSemesterId()).orElse(null);
-			if (semester == null) {
-				return 0;
-			}
-
-			// Get enrollments for this student in this semester
-			List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(payment.getStudentId(),
-					semester.getSemester());
-
-			BigDecimal totalAmount = BigDecimal.ZERO;
-			for (Enrollment enrollment : enrollments) {
-				Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
-				if (course != null) {
-					totalAmount = totalAmount.add(course.getFee());
-				}
-			}
-
-			return totalAmount.doubleValue();
-
+			// Lấy payment details và tính tổng
+			List<PaymentDetailDTO> details = paymentDetailService.getPaymentDetailsByPaymentId(payment.getId());
+			BigDecimal totalFee = details.stream()
+					.map(detail -> detail.getFee() != null ? detail.getFee() : BigDecimal.ZERO)
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
+			return totalFee.doubleValue();
 		} catch (Exception e) {
 			logger.warn("Error calculating payment amount for payment ID: {}", payment.getId(), e);
 			return 0;

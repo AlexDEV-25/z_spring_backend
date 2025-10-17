@@ -26,6 +26,7 @@ import com.example.app.model.Lecturer;
 import com.example.app.model.Payment;
 import com.example.app.model.Semester;
 import com.example.app.model.Student;
+import com.example.app.model.StudentSchedule;
 import com.example.app.model.Teaching;
 import com.example.app.model.User;
 import com.example.app.repository.ClassRepository;
@@ -36,10 +37,9 @@ import com.example.app.repository.LecturerRepository;
 import com.example.app.repository.PaymentRepository;
 import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.StudentRepository;
+import com.example.app.repository.StudentScheduleRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
-import com.example.app.repository.StudentScheduleRepository;
-import com.example.app.model.StudentSchedule;
 import com.example.app.share.Share;
 import com.example.app.share.Share.ChangePassword;
 import com.example.app.share.Share.SemesterUtils;
@@ -64,13 +64,14 @@ public class StudentPortalService {
 	private final GradeCalculationService gradeCalculationService;
 	private final DepartmentRepository departmentRepository;
 	private final StudentScheduleRepository studentScheduleRepository;
+	private final PaymentDetailService paymentDetailService;
 
 	public StudentPortalService(StudentRepository studentRepository, UserRepository userRepository,
 			EnrollmentRepository enrollmentRepository, CourseRepository courseRepository,
 			TeachingRepository teachingRepository, LecturerRepository lecturerRepository,
 			ClassRepository classRepository, SemesterRepository semesterRepository, PaymentRepository paymentRepository,
 			GradeCalculationService gradeCalculationService, DepartmentRepository departmentRepository,
-			StudentScheduleRepository studentScheduleRepository) {
+			StudentScheduleRepository studentScheduleRepository, PaymentDetailService paymentDetailService) {
 		this.studentRepository = studentRepository;
 		this.userRepository = userRepository;
 		this.enrollmentRepository = enrollmentRepository;
@@ -84,6 +85,7 @@ public class StudentPortalService {
 		this.gradeCalculationService = gradeCalculationService;
 		this.departmentRepository = departmentRepository;
 		this.studentScheduleRepository = studentScheduleRepository;
+		this.paymentDetailService = paymentDetailService;
 	}
 
 	public List<Share.SemesterInfo> getAllSemesters() {
@@ -100,20 +102,6 @@ public class StudentPortalService {
 		return SemesterUtils.requireByCode(semesterRepository, normalizeSemester(semester));
 	}
 
-	private Long resolveTargetSemesterId(String semester) {
-		String effectiveSemester = normalizeSemester(semester);
-		return SemesterUtils.resolveSemesterId(semesterRepository, effectiveSemester, 1L);
-	}
-
-	// Hàm lấy danh sách enrollment theo sinh viên + kỳ học
-	private List<Enrollment> getEnrolledCoursesBySemester(Long studentId, Long semesterId) {
-		return enrollmentRepository.findByStudentId(studentId).stream().filter(e -> "ENROLLED".equals(e.getStatus()))
-				.filter(e -> e.getCourseId() != null).filter(e -> {
-					Course course = courseRepository.findById(e.getCourseId()).orElse(null);
-					return course != null && Objects.equals(course.getSemesterId(), semesterId);
-				}).collect(Collectors.toList());
-	}
-
 	// Lấy bảng điểm của sinh viên. Nếu không truyền semester sẽ trả về tất cả học
 	// phần đã đăng ký
 	public StudentPortalInfo.StudentGradesInfo getStudentGrades(Long studentId, String semester) {
@@ -127,14 +115,11 @@ public class StudentPortalService {
 		final Optional<Semester> semesterOpt = filterBySemester
 				? SemesterUtils.findByCode(semesterRepository, effectiveSemester)
 				: Optional.empty();
-		final Long targetSemesterId = filterBySemester
-				? semesterOpt.map(Semester::getId)
-						.orElseGet(() -> SemesterUtils.resolveSemesterId(semesterRepository, effectiveSemester, 1L))
-				: null;
+		final Long targetSemesterId = filterBySemester ? semesterOpt.map(Semester::getId)
+				.orElseGet(() -> SemesterUtils.resolveSemesterId(semesterRepository, effectiveSemester, 1L)) : null;
 		final String targetSemesterCode = filterBySemester
-				? semesterOpt.map(Semester::getSemester)
-						.orElseGet(() -> semesterRepository.findById(targetSemesterId).map(Semester::getSemester)
-								.orElse(effectiveSemester))
+				? semesterOpt.map(Semester::getSemester).orElseGet(() -> semesterRepository.findById(targetSemesterId)
+						.map(Semester::getSemester).orElse(effectiveSemester))
 				: null;
 
 		if (filterBySemester) {
@@ -163,8 +148,7 @@ public class StudentPortalService {
 			} else {
 				if (courseSemesterId != null) {
 					semesterCode = semesterCodeCache.computeIfAbsent(courseSemesterId,
-							id -> semesterRepository.findById(id)
-									.map(Semester::getSemester).orElse(DEFAULT_SEMESTER));
+							id -> semesterRepository.findById(id).map(Semester::getSemester).orElse(DEFAULT_SEMESTER));
 				} else {
 					semesterCode = DEFAULT_SEMESTER;
 				}
@@ -248,8 +232,8 @@ public class StudentPortalService {
 			Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)
 					.orElseThrow(() -> new RuntimeException("Không tìm thấy đăng ký môn học"));
 
-			// Kiểm tra trạng thái enrollment
-			if ("ENROLLED".equals(enrollment.getStatus())) {
+			// Kiểm tra trạng thái enrollment - chỉ cho phép hủy nếu chưa thanh toán
+			if ("ENROLLED".equals(enrollment.getStatus()) || "PAID".equals(enrollment.getStatus())) {
 				return new StudentPortalInfo.CourseRegistrationResponse(false, "Không thể hủy môn học đã thanh toán");
 			}
 
@@ -277,7 +261,8 @@ public class StudentPortalService {
 		return userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin user"));
 	}
 
-	// Lấy thông tin thanh toán học phí của sinh viên theo semester
+	// Lấy thông tin thanh toán học phí của sinh viên theo semester - SỬ DỤNG
+	// PaymentDetailDTO TRỰC TIẾP
 	public StudentPortalInfo.PaymentInfo getPaymentInfo(Long studentId, String semester) {
 		logger.info("Getting payment info for student ID: {} in semester: {}", studentId, semester);
 
@@ -286,53 +271,70 @@ public class StudentPortalService {
 		try {
 			Semester semesterEntity = requireSemester(effectiveSemester);
 
-			// Lấy danh sách enrollments (bao gồm cả PENDING_PAYMENT và ENROLLED) của sinh
-			// viên trong semester này
-			List<Enrollment> enrolledCourses = enrollmentRepository.findByStudentIdAndSemester(studentId, semester)
-					.stream().filter(e -> "PENDING_PAYMENT".equals(e.getStatus()) || "ENROLLED".equals(e.getStatus()))
-					.collect(Collectors.toList());
-
-			// Tính tổng số tiền phải đóng từ các môn học đã đăng ký
-			BigDecimal totalAmount = enrolledCourses.stream()
-					.map(e -> courseRepository.findById(e.getCourseId()).map(Course::getFee).orElse(BigDecimal.ZERO))
-					.reduce(BigDecimal.ZERO, BigDecimal::add);
-			List<StudentPortalInfo.CoursePaymentDetail> courseDetails = new ArrayList<>();
-
-			for (Enrollment enrollment : enrolledCourses) {
-				Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
-				if (course != null) {
-					// Tạo course payment detail
-					StudentPortalInfo.CoursePaymentDetail detail = new StudentPortalInfo.CoursePaymentDetail(
-							course.getId(), course.getCourseCode(), course.getName(), course.getCredit(),
-							course.getFee(), enrollment.getStatus() // Sử dụng trạng thái thực tế của enrollment
-					);
-					courseDetails.add(detail);
-				}
-			}
-
-			// Kiểm tra trạng thái thanh toán
+			// Kiểm tra payment
 			Optional<Payment> paymentOpt = paymentRepository.findByStudentIdAndSemesterId(studentId,
 					semesterEntity.getId());
 
 			String paymentStatus;
-			BigDecimal paidAmount;
+			BigDecimal totalAmount = BigDecimal.ZERO;
+			BigDecimal paidAmount = BigDecimal.ZERO;
 			LocalDateTime paymentDate = null;
+			List<com.example.app.dto.PaymentDetailDTO> paymentDetails = new ArrayList<>();
 
 			if (paymentOpt.isPresent()) {
+				// ĐÃ CÓ PAYMENT - LẤY TỪ PAYMENT_DETAILS TABLE - KHÔNG CONVERT
 				Payment payment = paymentOpt.get();
 				paymentStatus = payment.getStatus().toString();
-				paidAmount = payment.getStatus() == Status.PAID ? totalAmount : BigDecimal.ZERO;
 				paymentDate = payment.getPaymentDate();
+
+				logger.info("🔍 DEBUG: Payment exists - ID: {}, Status: {}, Amount: {}", payment.getId(), payment.getStatus(), payment.getAmount());
+
+				logger.info("📊 DEBUG: Lấy payment details từ payment_details table cho payment ID: {}", payment.getId());
+				paymentDetails = paymentDetailService.getPaymentDetailsByPaymentId(payment.getId());
+				logger.info("📋 DEBUG: Found {} payment details in database", paymentDetails.size());
+
+				// Tính tổng từ PaymentDetailDTO - KHÔNG CẦN CONVERT
+				totalAmount = paymentDetails.stream()
+						.map(detail -> {
+							BigDecimal fee = detail.getFee() != null ? detail.getFee() : BigDecimal.valueOf(1000000);
+							logger.info("💰 DEBUG: Course {} fee: {}", detail.getCourseName(), fee);
+							return fee;
+						})
+						.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+				paidAmount = payment.getStatus() == Status.PAID ? totalAmount : BigDecimal.ZERO;
+				logger.info("✅ DEBUG: Calculated total amount: {} from {} payment details", totalAmount, paymentDetails.size());
 			} else {
+				// CHƯA CÓ PAYMENT - TẠO PaymentDetailDTO TẠM TỪ ENROLLMENTS
+				logger.info("⚠️ Chưa có payment, tạo PaymentDetailDTO tạm từ enrollments");
 				paymentStatus = "PENDING";
-				paidAmount = BigDecimal.ZERO;
+
+				List<Enrollment> enrolledCourses = enrollmentRepository.findByStudentIdAndSemester(studentId, semester)
+						.stream()
+						.filter(e -> "PENDING_PAYMENT".equals(e.getStatus()) || "ENROLLED".equals(e.getStatus()))
+						.collect(Collectors.toList());
+
+				for (Enrollment enrollment : enrolledCourses) {
+					Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+					if (course != null) {
+						// Tạo PaymentDetailDTO tạm (chưa lưu DB)
+						com.example.app.dto.PaymentDetailDTO detail = new com.example.app.dto.PaymentDetailDTO(null,
+								null, enrollment.getId(), semester, course.getId(), course.getCourseCode(),
+								course.getName(), course.getCredit(),
+								course.getFee() != null ? course.getFee() : BigDecimal.valueOf(1000000));
+						paymentDetails.add(detail);
+						totalAmount = totalAmount
+								.add(course.getFee() != null ? course.getFee() : BigDecimal.valueOf(1000000));
+					}
+				}
+
 			}
 
 			// Tạo display name cho semester
 			String displayName = Share.getAllSemester.generateDisplayName(semester);
 
 			return new StudentPortalInfo.PaymentInfo(semesterEntity.getId(), semester, displayName, totalAmount,
-					paidAmount, paymentStatus, paymentDate, courseDetails);
+					paidAmount, paymentStatus, paymentDate, paymentDetails);
 
 		} catch (Exception e) {
 			logger.error("Error getting payment info for student ID: {} in semester: {}", studentId, semester, e);
@@ -372,7 +374,7 @@ public class StudentPortalService {
 		}
 	}
 
-	// Tạo payment record cho sinh viên trong semester
+	// Tạo payment record cho sinh viên trong semester - TỰ ĐỘNG TẠO PAYMENT DETAILS
 	public Payment createPayment(Long studentId, String semester) {
 		logger.info("Creating payment for student ID: {} in semester: {}", studentId, semester);
 
@@ -386,12 +388,34 @@ public class StudentPortalService {
 			Optional<Payment> existingPayment = paymentRepository.findByStudentIdAndSemesterId(studentId,
 					semesterEntity.getId());
 			if (existingPayment.isPresent()) {
+				logger.info("Payment already exists for student ID: {} in semester: {}", studentId, semester);
 				return existingPayment.get();
 			}
 
 			// Tạo payment mới
 			Payment payment = new Payment(studentId, semesterEntity.getId());
-			return paymentRepository.save(payment);
+			payment = paymentRepository.save(payment);
+
+			// TỰ ĐỘNG TẠO PAYMENT DETAILS cho các enrollments đã đăng ký
+			List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(studentId, semester);
+			logger.info("🔍 DEBUG: Found {} enrollments for student {} in semester {}", enrollments.size(), studentId, semester);
+
+			if (!enrollments.isEmpty()) {
+				List<Long> enrollmentIds = enrollments.stream().map(Enrollment::getId).collect(Collectors.toList());
+				logger.info("📋 DEBUG: Enrollment IDs: {}", enrollmentIds);
+
+				try {
+					paymentDetailService.createPaymentDetails(payment.getId(), enrollmentIds, semester);
+					logger.info("✅ DEBUG: Successfully created {} payment details for payment ID: {}", enrollmentIds.size(), payment.getId());
+				} catch (Exception e) {
+					logger.error("❌ DEBUG: Error creating payment details for payment ID: {}", payment.getId(), e);
+					throw e;
+				}
+			} else {
+				logger.warn("⚠️ DEBUG: No enrollments found for student ID: {} in semester: {}", studentId, semester);
+			}
+
+			return payment;
 
 		} catch (Exception e) {
 			logger.error("Error creating payment for student ID: {} in semester: {}", studentId, semester, e);
@@ -494,6 +518,8 @@ public class StudentPortalService {
 				throw new RuntimeException("Sinh viên chưa đăng ký môn học nào trong kỳ này");
 			}
 
+			logger.info("🔍 DEBUG: Found {} enrollments for payment creation", enrollments.size());
+
 			// Kiểm tra xem đã có payment cho kỳ này chưa
 			Payment existingPayment = paymentRepository.findByStudentIdAndSemesterId(studentId, semesterObj.getId())
 					.orElse(null);
@@ -545,6 +571,11 @@ public class StudentPortalService {
 				logger.info(
 						"Created payment request for student ID: {} in semester: {} with amount: {} (status: PENDING)",
 						studentId, semester, totalAmount);
+
+				// ✅ TẠO PAYMENT DETAILS SAU KHI TẠO PAYMENT
+				List<Long> enrollmentIds = enrollments.stream().map(Enrollment::getId).collect(Collectors.toList());
+				paymentDetailService.createPaymentDetails(newPayment.getId(), enrollmentIds, semester);
+				logger.info("✅ Created {} payment details for payment ID: {}", enrollmentIds.size(), newPayment.getId());
 
 				// Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED ngay khi tạo
 				// payment Và trừ slot trong course
@@ -689,15 +720,15 @@ public class StudentPortalService {
 	// ==================== STUDENT SCHEDULE METHODS ====================
 
 	/**
-	 * Lấy thời khóa biểu từ bảng student_schedule với thông tin đầy đủ
-	 * Join với teaching, course, lecturer để lấy thông tin chi tiết
+	 * Lấy thời khóa biểu từ bảng student_schedule với thông tin đầy đủ Join với
+	 * teaching, course, lecturer để lấy thông tin chi tiết
 	 */
 	public List<com.example.app.dto.StudentScheduleDetailDTO> getStudentScheduleList(Long studentId, String semester) {
 		logger.info("Getting schedule list for student ID: {} in semester: {}", studentId, semester);
-		
+
 		List<StudentSchedule> schedules = studentScheduleRepository.findByStudentIdAndSemester(studentId, semester);
 		List<com.example.app.dto.StudentScheduleDetailDTO> result = new ArrayList<>();
-		
+
 		for (StudentSchedule schedule : schedules) {
 			// Lấy thông tin từ teaching
 			Teaching teaching = teachingRepository.findById(schedule.getTeachingId()).orElse(null);
@@ -705,14 +736,14 @@ public class StudentPortalService {
 				logger.warn("Teaching not found for ID: {}", schedule.getTeachingId());
 				continue;
 			}
-			
+
 			// Lấy thông tin course
 			Course course = courseRepository.findById(teaching.getCourseId()).orElse(null);
 			if (course == null) {
 				logger.warn("Course not found for ID: {}", teaching.getCourseId());
 				continue;
 			}
-			
+
 			// Lấy tên giảng viên
 			String lecturerName = null;
 			if (teaching.getLecturerId() != null) {
@@ -724,71 +755,55 @@ public class StudentPortalService {
 					}
 				}
 			}
-			
+
 			// Tạo DTO với thông tin đầy đủ
 			com.example.app.dto.StudentScheduleDetailDTO dto = new com.example.app.dto.StudentScheduleDetailDTO(
-				schedule.getId(),
-				schedule.getStudentId(),
-				schedule.getEnrollmentId(),
-				schedule.getTeachingId(),
-				schedule.getSemester(),
-				course.getId(),
-				course.getCourseCode(),
-				course.getName(),
-				course.getCredit(),
-				teaching.getDayOfWeek(),
-				teaching.getPeriod(),
-				teaching.getClassRoom(),
-				teaching.getLecturerId(),
-				lecturerName
-			);
-			
+					schedule.getId(), schedule.getStudentId(), schedule.getEnrollmentId(), schedule.getTeachingId(),
+					schedule.getSemester(), course.getId(), course.getCourseCode(), course.getName(),
+					course.getCredit(), teaching.getDayOfWeek(), teaching.getPeriod(), teaching.getClassRoom(),
+					teaching.getLecturerId(), lecturerName);
+
 			result.add(dto);
 		}
-		
+
 		return result;
 	}
 
 	/**
-	 * Tạo/cập nhật thời khóa biểu cho sinh viên từ enrollments
-	 * Chỉ lưu ID liên kết, thông tin chi tiết lấy từ teaching
+	 * Tạo/cập nhật thời khóa biểu cho sinh viên từ enrollments Chỉ lưu ID liên kết,
+	 * thông tin chi tiết lấy từ teaching
 	 */
 	public void generateScheduleForStudent(Long studentId, String semester) {
 		logger.info("Generating schedule for student ID: {} in semester: {}", studentId, semester);
-		
+
 		// Xóa schedule cũ của semester này
 		studentScheduleRepository.deleteByStudentIdAndSemester(studentId, semester);
-		
+
 		// Lấy danh sách enrollments của sinh viên trong semester
 		List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(studentId, semester);
 		logger.info("Found {} enrollments for student ID: {} in semester: {}", enrollments.size(), studentId, semester);
-		
+
 		for (Enrollment enrollment : enrollments) {
 			Long courseId = enrollment.getCourseId();
-			
+
 			// Tìm teaching record cho course này
 			List<Teaching> teachings = teachingRepository.findByCourseId(courseId);
 			if (teachings.isEmpty()) {
 				logger.warn("No teaching found for course ID: {}", courseId);
 				continue;
 			}
-			
+
 			// Lấy teaching đầu tiên
 			Teaching teaching = teachings.get(0);
-			
+
 			// Tạo student schedule - CHỈ LƯU ID LIÊN KẾT
-			StudentSchedule schedule = new StudentSchedule(
-				studentId,
-				enrollment.getId(),
-				teaching.getId(),
-				semester
-			);
-			
+			StudentSchedule schedule = new StudentSchedule(studentId, enrollment.getId(), teaching.getId(), semester);
+
 			studentScheduleRepository.save(schedule);
-			logger.info("Created schedule: student={}, enrollment={}, teaching={}, semester={}", 
-					   studentId, enrollment.getId(), teaching.getId(), semester);
+			logger.info("Created schedule: student={}, enrollment={}, teaching={}, semester={}", studentId,
+					enrollment.getId(), teaching.getId(), semester);
 		}
-		
+
 		logger.info("Successfully generated schedule for student ID: {} in semester: {}", studentId, semester);
 	}
 

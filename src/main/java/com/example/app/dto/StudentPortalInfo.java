@@ -5,9 +5,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTO cho Student Portal
- * Lưu ý: StudentScheduleInfo và ScheduleItem đã được thay thế bằng StudentScheduleDetailDTO
- * Sử dụng StudentScheduleDetailDTO để lấy thời khóa biểu từ bảng student_schedule
+ * DTO cho Student Portal Lưu ý: StudentScheduleInfo và ScheduleItem đã được
+ * thay thế bằng StudentScheduleDetailDTO Sử dụng StudentScheduleDetailDTO để
+ * lấy thời khóa biểu từ bảng student_schedule
  */
 public class StudentPortalInfo {
 
@@ -613,7 +613,7 @@ public class StudentPortalInfo {
 		}
 	}
 
-	// DTO cho thông tin thanh toán học phí
+	// DTO cho thông tin thanh toán học phí - SỬ DỤNG PaymentDetailDTO
 	public static class PaymentInfo {
 		private Long semesterId;
 		private String semester;
@@ -623,7 +623,7 @@ public class StudentPortalInfo {
 		private BigDecimal remainingAmount;
 		private String paymentStatus;
 		private LocalDateTime paymentDate;
-		private List<CoursePaymentDetail> courseDetails;
+		private List<PaymentDetailDTO> paymentDetails; // THAY ĐỔI: Dùng PaymentDetailDTO
 		private boolean canCreatePayment;
 
 		// Constructors
@@ -632,7 +632,7 @@ public class StudentPortalInfo {
 
 		public PaymentInfo(Long semesterId, String semester, String semesterDisplayName, BigDecimal totalAmount,
 				BigDecimal paidAmount, String paymentStatus, LocalDateTime paymentDate,
-				List<CoursePaymentDetail> courseDetails, boolean canCreatePayment) {
+				List<PaymentDetailDTO> paymentDetails, boolean canCreatePayment) {
 			this.semesterId = semesterId;
 			this.semester = semester;
 			this.semesterDisplayName = semesterDisplayName;
@@ -640,16 +640,16 @@ public class StudentPortalInfo {
 			this.paidAmount = paidAmount;
 			this.paymentStatus = paymentStatus;
 			this.paymentDate = paymentDate;
-			this.courseDetails = courseDetails;
+			this.paymentDetails = paymentDetails;
 			this.canCreatePayment = canCreatePayment;
 			recalculateDerivedFields();
 		}
 
 		public PaymentInfo(Long semesterId, String semester, String semesterDisplayName, BigDecimal totalAmount,
 				BigDecimal paidAmount, String paymentStatus, LocalDateTime paymentDate,
-				List<CoursePaymentDetail> courseDetails) {
+				List<PaymentDetailDTO> paymentDetails) {
 			this(semesterId, semester, semesterDisplayName, totalAmount, paidAmount, paymentStatus, paymentDate,
-					courseDetails, false);
+					paymentDetails, false);
 		}
 
 		// Getters and Setters
@@ -720,12 +720,12 @@ public class StudentPortalInfo {
 			recalculateDerivedFields();
 		}
 
-		public List<CoursePaymentDetail> getCourseDetails() {
-			return courseDetails;
+		public List<PaymentDetailDTO> getPaymentDetails() {
+			return paymentDetails;
 		}
 
-		public void setCourseDetails(List<CoursePaymentDetail> courseDetails) {
-			this.courseDetails = courseDetails;
+		public void setPaymentDetails(List<PaymentDetailDTO> paymentDetails) {
+			this.paymentDetails = paymentDetails;
 		}
 
 		public boolean isCanCreatePayment() {
@@ -747,79 +747,6 @@ public class StudentPortalInfo {
 
 			this.canCreatePayment = (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0)
 					&& paymentDate == null;
-		}
-	}
-
-	// DTO cho chi tiết thanh toán từng môn học
-	public static class CoursePaymentDetail {
-		private Long courseId;
-		private String courseCode;
-		private String courseName;
-		private Integer credits;
-		private BigDecimal fee;
-		private String enrollmentStatus;
-
-		// Constructors
-		public CoursePaymentDetail() {
-		}
-
-		public CoursePaymentDetail(Long courseId, String courseCode, String courseName, Integer credits, BigDecimal fee,
-				String enrollmentStatus) {
-			this.courseId = courseId;
-			this.courseCode = courseCode;
-			this.courseName = courseName;
-			this.credits = credits;
-			this.fee = fee;
-			this.enrollmentStatus = enrollmentStatus;
-		}
-
-		// Getters and Setters
-		public Long getCourseId() {
-			return courseId;
-		}
-
-		public void setCourseId(Long courseId) {
-			this.courseId = courseId;
-		}
-
-		public String getCourseCode() {
-			return courseCode;
-		}
-
-		public void setCourseCode(String courseCode) {
-			this.courseCode = courseCode;
-		}
-
-		public String getCourseName() {
-			return courseName;
-		}
-
-		public void setCourseName(String courseName) {
-			this.courseName = courseName;
-		}
-
-		public Integer getCredits() {
-			return credits;
-		}
-
-		public void setCredits(Integer credits) {
-			this.credits = credits;
-		}
-
-		public BigDecimal getFee() {
-			return fee;
-		}
-
-		public void setFee(BigDecimal fee) {
-			this.fee = fee;
-		}
-
-		public String getEnrollmentStatus() {
-			return enrollmentStatus;
-		}
-
-		public void setEnrollmentStatus(String enrollmentStatus) {
-			this.enrollmentStatus = enrollmentStatus;
 		}
 	}
 }
