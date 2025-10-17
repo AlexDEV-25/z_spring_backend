@@ -38,6 +38,8 @@ import com.example.app.repository.SemesterRepository;
 import com.example.app.repository.StudentRepository;
 import com.example.app.repository.TeachingRepository;
 import com.example.app.repository.UserRepository;
+import com.example.app.repository.StudentScheduleRepository;
+import com.example.app.model.StudentSchedule;
 import com.example.app.share.Share;
 import com.example.app.share.Share.ChangePassword;
 import com.example.app.share.Share.SemesterUtils;
@@ -61,12 +63,14 @@ public class StudentPortalService {
 	private final BCryptPasswordEncoder passwordEncoder;
 	private final GradeCalculationService gradeCalculationService;
 	private final DepartmentRepository departmentRepository;
+	private final StudentScheduleRepository studentScheduleRepository;
 
 	public StudentPortalService(StudentRepository studentRepository, UserRepository userRepository,
 			EnrollmentRepository enrollmentRepository, CourseRepository courseRepository,
 			TeachingRepository teachingRepository, LecturerRepository lecturerRepository,
 			ClassRepository classRepository, SemesterRepository semesterRepository, PaymentRepository paymentRepository,
-			GradeCalculationService gradeCalculationService, DepartmentRepository departmentRepository) {
+			GradeCalculationService gradeCalculationService, DepartmentRepository departmentRepository,
+			StudentScheduleRepository studentScheduleRepository) {
 		this.studentRepository = studentRepository;
 		this.userRepository = userRepository;
 		this.enrollmentRepository = enrollmentRepository;
@@ -79,6 +83,7 @@ public class StudentPortalService {
 		this.passwordEncoder = new BCryptPasswordEncoder();
 		this.gradeCalculationService = gradeCalculationService;
 		this.departmentRepository = departmentRepository;
+		this.studentScheduleRepository = studentScheduleRepository;
 	}
 
 	public List<Share.SemesterInfo> getAllSemesters() {
@@ -109,56 +114,8 @@ public class StudentPortalService {
 				}).collect(Collectors.toList());
 	}
 
-	// Hàm chuyển đổi Enrollment → ScheduleItem
-	private StudentPortalInfo.ScheduleItem convertToScheduleItem(Enrollment enrollment, Long targetSemesterId) {
-		Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
-		if (course == null || !targetSemesterId.equals(course.getSemesterId()))
-			return null;
-
-		Teaching teaching = teachingRepository.findAll().stream().filter(t -> course.getId().equals(t.getCourseId()))
-				.findFirst().orElse(null);
-
-		String lecturerName = "Chưa phân công";
-		if (teaching != null) {
-			Lecturer lecturer = lecturerRepository.findById(teaching.getLecturerId()).orElse(null);
-			if (lecturer != null) {
-				User lecturerUser = userRepository.findById(lecturer.getUserId()).orElse(null);
-				if (lecturerUser != null)
-					lecturerName = lecturerUser.getFullName();
-			}
-		}
-
-		return new StudentPortalInfo.ScheduleItem(course.getId(), course.getCourseCode(), course.getName(),
-				course.getCredit(), teaching != null ? teaching.getPeriod() : "1-2",
-				teaching != null ? teaching.getDayOfWeek() : "Thứ 2", lecturerName,
-				teaching != null && teaching.getClassRoom() != null ? teaching.getClassRoom() : "Chưa xác định");
-	}
-
-	// Hàm lấy thông tin thời khóa biểu
-	public StudentPortalInfo.StudentScheduleInfo getStudentSchedule(Long studentId, String semester) {
-		logger.info("Getting schedule for student ID: {} in semester: {}", studentId, semester);
-
-		Student student = getStudentById(studentId);
-		User user = getUserById(student.getUserId());
-
-		Long targetSemesterId = resolveTargetSemesterId(semester);
-		logger.info("Filtering schedule by semesterId: {}", targetSemesterId);
-
-		List<Enrollment> enrollments = getEnrolledCoursesBySemester(studentId, targetSemesterId);
-		logger.info("Found {} ENROLLED enrollments for student ID: {} in semester: {}", enrollments.size(), studentId,
-				semester);
-
-		List<StudentPortalInfo.ScheduleItem> scheduleItems = enrollments.stream()
-				.map(e -> convertToScheduleItem(e, targetSemesterId)).filter(Objects::nonNull)
-				.collect(Collectors.toList());
-
-		int totalCredits = scheduleItems.stream().mapToInt(StudentPortalInfo.ScheduleItem::getCredit).sum();
-
-		return new StudentPortalInfo.StudentScheduleInfo(studentId, student.getStudentCode(), user.getFullName(),
-				semester, totalCredits, scheduleItems);
-	}
-
-	// Lấy bảng điểm của sinh viên. Nếu không truyền semester sẽ trả về tất cả học phần đã đăng ký
+	// Lấy bảng điểm của sinh viên. Nếu không truyền semester sẽ trả về tất cả học
+	// phần đã đăng ký
 	public StudentPortalInfo.StudentGradesInfo getStudentGrades(Long studentId, String semester) {
 		logger.info("Getting grades for student ID: {} in semester: {}", studentId, semester);
 
@@ -205,8 +162,9 @@ public class StudentPortalService {
 				semesterCode = targetSemesterCode != null ? targetSemesterCode : effectiveSemester;
 			} else {
 				if (courseSemesterId != null) {
-					semesterCode = semesterCodeCache.computeIfAbsent(courseSemesterId, id -> semesterRepository.findById(id)
-							.map(Semester::getSemester).orElse(DEFAULT_SEMESTER));
+					semesterCode = semesterCodeCache.computeIfAbsent(courseSemesterId,
+							id -> semesterRepository.findById(id)
+									.map(Semester::getSemester).orElse(DEFAULT_SEMESTER));
 				} else {
 					semesterCode = DEFAULT_SEMESTER;
 				}
@@ -234,7 +192,8 @@ public class StudentPortalService {
 		double gpa = 0; // TODO: implement GPA calculation
 
 		int totalCourses = gradeItems.size();
-		int completedCourses = (int) gradeItems.stream().filter(item -> "Đã hoàn thành".equals(item.getStatus())).count();
+		int completedCourses = (int) gradeItems.stream().filter(item -> "Đã hoàn thành".equals(item.getStatus()))
+				.count();
 		int inProgressCourses = (int) gradeItems.stream()
 				.filter(item -> "Đang học".equals(item.getStatus()) || "Chờ thanh toán".equals(item.getStatus()))
 				.count();
@@ -725,5 +684,118 @@ public class StudentPortalService {
 			logger.error("Error exporting grades to CSV", e);
 			throw new RuntimeException("Error exporting grades", e);
 		}
+	}
+
+	// ==================== STUDENT SCHEDULE METHODS ====================
+
+	/**
+	 * Lấy thời khóa biểu từ bảng student_schedule với thông tin đầy đủ
+	 * Join với teaching, course, lecturer để lấy thông tin chi tiết
+	 */
+	public List<com.example.app.dto.StudentScheduleDetailDTO> getStudentScheduleList(Long studentId, String semester) {
+		logger.info("Getting schedule list for student ID: {} in semester: {}", studentId, semester);
+		
+		List<StudentSchedule> schedules = studentScheduleRepository.findByStudentIdAndSemester(studentId, semester);
+		List<com.example.app.dto.StudentScheduleDetailDTO> result = new ArrayList<>();
+		
+		for (StudentSchedule schedule : schedules) {
+			// Lấy thông tin từ teaching
+			Teaching teaching = teachingRepository.findById(schedule.getTeachingId()).orElse(null);
+			if (teaching == null) {
+				logger.warn("Teaching not found for ID: {}", schedule.getTeachingId());
+				continue;
+			}
+			
+			// Lấy thông tin course
+			Course course = courseRepository.findById(teaching.getCourseId()).orElse(null);
+			if (course == null) {
+				logger.warn("Course not found for ID: {}", teaching.getCourseId());
+				continue;
+			}
+			
+			// Lấy tên giảng viên
+			String lecturerName = null;
+			if (teaching.getLecturerId() != null) {
+				Lecturer lecturer = lecturerRepository.findById(teaching.getLecturerId()).orElse(null);
+				if (lecturer != null) {
+					User lecturerUser = userRepository.findById(lecturer.getUserId()).orElse(null);
+					if (lecturerUser != null) {
+						lecturerName = lecturerUser.getFullName();
+					}
+				}
+			}
+			
+			// Tạo DTO với thông tin đầy đủ
+			com.example.app.dto.StudentScheduleDetailDTO dto = new com.example.app.dto.StudentScheduleDetailDTO(
+				schedule.getId(),
+				schedule.getStudentId(),
+				schedule.getEnrollmentId(),
+				schedule.getTeachingId(),
+				schedule.getSemester(),
+				course.getId(),
+				course.getCourseCode(),
+				course.getName(),
+				course.getCredit(),
+				teaching.getDayOfWeek(),
+				teaching.getPeriod(),
+				teaching.getClassRoom(),
+				teaching.getLecturerId(),
+				lecturerName
+			);
+			
+			result.add(dto);
+		}
+		
+		return result;
+	}
+
+	/**
+	 * Tạo/cập nhật thời khóa biểu cho sinh viên từ enrollments
+	 * Chỉ lưu ID liên kết, thông tin chi tiết lấy từ teaching
+	 */
+	public void generateScheduleForStudent(Long studentId, String semester) {
+		logger.info("Generating schedule for student ID: {} in semester: {}", studentId, semester);
+		
+		// Xóa schedule cũ của semester này
+		studentScheduleRepository.deleteByStudentIdAndSemester(studentId, semester);
+		
+		// Lấy danh sách enrollments của sinh viên trong semester
+		List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(studentId, semester);
+		logger.info("Found {} enrollments for student ID: {} in semester: {}", enrollments.size(), studentId, semester);
+		
+		for (Enrollment enrollment : enrollments) {
+			Long courseId = enrollment.getCourseId();
+			
+			// Tìm teaching record cho course này
+			List<Teaching> teachings = teachingRepository.findByCourseId(courseId);
+			if (teachings.isEmpty()) {
+				logger.warn("No teaching found for course ID: {}", courseId);
+				continue;
+			}
+			
+			// Lấy teaching đầu tiên
+			Teaching teaching = teachings.get(0);
+			
+			// Tạo student schedule - CHỈ LƯU ID LIÊN KẾT
+			StudentSchedule schedule = new StudentSchedule(
+				studentId,
+				enrollment.getId(),
+				teaching.getId(),
+				semester
+			);
+			
+			studentScheduleRepository.save(schedule);
+			logger.info("Created schedule: student={}, enrollment={}, teaching={}, semester={}", 
+					   studentId, enrollment.getId(), teaching.getId(), semester);
+		}
+		
+		logger.info("Successfully generated schedule for student ID: {} in semester: {}", studentId, semester);
+	}
+
+	/**
+	 * Kiểm tra sinh viên đã có schedule trong semester chưa
+	 */
+	public boolean hasSchedule(Long studentId, String semester) {
+		return studentScheduleRepository.existsByStudentIdAndSemester(studentId, semester);
 	}
 }

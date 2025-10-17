@@ -96,25 +96,6 @@ public class StudentPortalController {
 	}
 
 	/**
-	 * Lấy thời khóa biểu của sinh viên hiện tại
-	 */
-	@GetMapping("/schedule")
-	public ResponseEntity<StudentPortalInfo.StudentScheduleInfo> getMySchedule(
-			@RequestParam(required = false, defaultValue = "2024-1") String semester) {
-		try {
-			Long studentId = getCurrentStudentId();
-			logger.info("Getting schedule for student ID: {} in semester: {}", studentId, semester);
-
-			StudentPortalInfo.StudentScheduleInfo schedule = studentPortalService.getStudentSchedule(studentId,
-					semester);
-			return ResponseEntity.ok(schedule);
-		} catch (Exception e) {
-			logger.error("Error getting student schedule: ", e);
-			return ResponseEntity.badRequest().build();
-		}
-	}
-
-	/**
 	 * Lấy bảng điểm của sinh viên hiện tại theo semester
 	 */
 	@GetMapping("/grades")
@@ -341,5 +322,59 @@ public class StudentPortalController {
 
 		return userService.getUserByUsername(username).map(UserDTO::getId)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng"));
+	}
+
+	// ==================== STUDENT SCHEDULE ENDPOINTS ====================
+
+	/**
+	 * Lấy thời khóa biểu từ bảng student_schedule
+	 * GET /api/student/schedule-list?semester=2024-1
+	 */
+	@GetMapping("/schedule-list")
+	public ResponseEntity<?> getStudentScheduleList(@RequestParam(required = false, defaultValue = "2024-1") String semester) {
+		try {
+			Long studentId = getCurrentStudentId();
+			logger.info("Getting schedule list for student ID: {} in semester: {}", studentId, semester);
+			
+			var schedules = studentPortalService.getStudentScheduleList(studentId, semester);
+			return ResponseEntity.ok(schedules);
+		} catch (Exception e) {
+			logger.error("Error getting schedule list: ", e);
+			return ResponseEntity.badRequest().body("Lỗi khi lấy thời khóa biểu: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Tạo/cập nhật thời khóa biểu cho sinh viên
+	 * POST /api/student/schedule/generate?semester=2024-1
+	 */
+	@PostMapping("/schedule/generate")
+	public ResponseEntity<String> generateSchedule(@RequestParam(required = false, defaultValue = "2024-1") String semester) {
+		try {
+			Long studentId = getCurrentStudentId();
+			logger.info("Generating schedule for student ID: {} in semester: {}", studentId, semester);
+			
+			studentPortalService.generateScheduleForStudent(studentId, semester);
+			return ResponseEntity.ok("Đã tạo thời khóa biểu thành công cho học kỳ " + semester);
+		} catch (Exception e) {
+			logger.error("Error generating schedule: ", e);
+			return ResponseEntity.badRequest().body("Lỗi khi tạo thời khóa biểu: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Kiểm tra sinh viên đã có thời khóa biểu chưa
+	 * GET /api/student/schedule/exists?semester=2024-1
+	 */
+	@GetMapping("/schedule/exists")
+	public ResponseEntity<Boolean> hasSchedule(@RequestParam(required = false, defaultValue = "2024-1") String semester) {
+		try {
+			Long studentId = getCurrentStudentId();
+			boolean exists = studentPortalService.hasSchedule(studentId, semester);
+			return ResponseEntity.ok(exists);
+		} catch (Exception e) {
+			logger.error("Error checking schedule existence: ", e);
+			return ResponseEntity.ok(false);
+		}
 	}
 }
