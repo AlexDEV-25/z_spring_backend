@@ -184,17 +184,17 @@ public class TeacherPortalController {
 	 * Thay đổi mật khẩu cho giảng viên
 	 */
 	@PostMapping("/change-password")
-	public ResponseEntity<Share.ChangePasswordResponse> changePassword(
+	public ResponseEntity<Share.ApiResponse> changePassword(
 			@Valid @RequestBody Share.ChangePasswordRequest request) {
 		try {
 			Long userId = getCurrentUserId();
 			logger.info("Changing password for lecturer ID: {}", userId);
 
-			Share.ChangePasswordResponse response = teacherService.changePassword(userId, request);
+			Share.ApiResponse response = teacherService.changePassword(userId, request);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			logger.error("Error changing password", e);
-			return ResponseEntity.ok(new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage()));
+			return ResponseEntity.ok(Share.ResponseUtils.error("Lỗi hệ thống: " + e.getMessage()));
 		}
 	}
 

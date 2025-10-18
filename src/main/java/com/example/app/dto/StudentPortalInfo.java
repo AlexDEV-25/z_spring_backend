@@ -1,7 +1,5 @@
 package com.example.app.dto;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -613,140 +611,9 @@ public class StudentPortalInfo {
 		}
 	}
 
-	// DTO cho thông tin thanh toán học phí - SỬ DỤNG PaymentDetailDTO
-	public static class PaymentInfo {
-		private Long semesterId;
-		private String semester;
-		private String semesterDisplayName;
-		private BigDecimal totalAmount;
-		private BigDecimal paidAmount;
-		private BigDecimal remainingAmount;
-		private String paymentStatus;
-		private LocalDateTime paymentDate;
-		private List<PaymentDetailDTO> paymentDetails; // THAY ĐỔI: Dùng PaymentDetailDTO
-		private boolean canCreatePayment;
+	// DTO cho thông tin thanh toán học phí - Sử dụng Share.PaymentSummaryDTO thay
+	// thế
+	// public static class PaymentInfo { ... } - ĐÃ XÓA, sử dụng
+	// Share.PaymentSummaryDTO
 
-		// Constructors
-		public PaymentInfo() {
-		}
-
-		public PaymentInfo(Long semesterId, String semester, String semesterDisplayName, BigDecimal totalAmount,
-				BigDecimal paidAmount, String paymentStatus, LocalDateTime paymentDate,
-				List<PaymentDetailDTO> paymentDetails, boolean canCreatePayment) {
-			this.semesterId = semesterId;
-			this.semester = semester;
-			this.semesterDisplayName = semesterDisplayName;
-			this.totalAmount = totalAmount;
-			this.paidAmount = paidAmount;
-			this.paymentStatus = paymentStatus;
-			this.paymentDate = paymentDate;
-			this.paymentDetails = paymentDetails;
-			this.canCreatePayment = canCreatePayment;
-			recalculateDerivedFields();
-		}
-
-		public PaymentInfo(Long semesterId, String semester, String semesterDisplayName, BigDecimal totalAmount,
-				BigDecimal paidAmount, String paymentStatus, LocalDateTime paymentDate,
-				List<PaymentDetailDTO> paymentDetails) {
-			this(semesterId, semester, semesterDisplayName, totalAmount, paidAmount, paymentStatus, paymentDate,
-					paymentDetails, false);
-		}
-
-		// Getters and Setters
-		public Long getSemesterId() {
-			return semesterId;
-		}
-
-		public void setSemesterId(Long semesterId) {
-			this.semesterId = semesterId;
-		}
-
-		public String getSemester() {
-			return semester;
-		}
-
-		public void setSemester(String semester) {
-			this.semester = semester;
-		}
-
-		public String getSemesterDisplayName() {
-			return semesterDisplayName;
-		}
-
-		public void setSemesterDisplayName(String semesterDisplayName) {
-			this.semesterDisplayName = semesterDisplayName;
-		}
-
-		public BigDecimal getTotalAmount() {
-			return totalAmount;
-		}
-
-		public void setTotalAmount(BigDecimal totalAmount) {
-			this.totalAmount = totalAmount;
-			recalculateDerivedFields();
-		}
-
-		public BigDecimal getPaidAmount() {
-			return paidAmount;
-		}
-
-		public void setPaidAmount(BigDecimal paidAmount) {
-			this.paidAmount = paidAmount;
-			recalculateDerivedFields();
-		}
-
-		public BigDecimal getRemainingAmount() {
-			return remainingAmount;
-		}
-
-		public void setRemainingAmount(BigDecimal remainingAmount) {
-			this.remainingAmount = remainingAmount;
-		}
-
-		public String getPaymentStatus() {
-			return paymentStatus;
-		}
-
-		public void setPaymentStatus(String paymentStatus) {
-			this.paymentStatus = paymentStatus;
-		}
-
-		public LocalDateTime getPaymentDate() {
-			return paymentDate;
-		}
-
-		public void setPaymentDate(LocalDateTime paymentDate) {
-			this.paymentDate = paymentDate;
-			recalculateDerivedFields();
-		}
-
-		public List<PaymentDetailDTO> getPaymentDetails() {
-			return paymentDetails;
-		}
-
-		public void setPaymentDetails(List<PaymentDetailDTO> paymentDetails) {
-			this.paymentDetails = paymentDetails;
-		}
-
-		public boolean isCanCreatePayment() {
-			return canCreatePayment;
-		}
-
-		public void setCanCreatePayment(boolean canCreatePayment) {
-			this.canCreatePayment = canCreatePayment;
-		}
-
-		private void recalculateDerivedFields() {
-			if (totalAmount != null && paidAmount != null) {
-				this.remainingAmount = totalAmount.subtract(paidAmount);
-			} else if (totalAmount != null) {
-				this.remainingAmount = totalAmount;
-			} else {
-				this.remainingAmount = BigDecimal.ZERO;
-			}
-
-			this.canCreatePayment = (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0)
-					&& paymentDate == null;
-		}
-	}
 }

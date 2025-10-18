@@ -13,8 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.app.dto.AuthResponse;
-import com.example.app.dto.RegisterRequest;
-import com.example.app.exception.DuplicateResourceException;
 import com.example.app.exception.ResourceNotFoundException;
 import com.example.app.model.User;
 import com.example.app.repository.UserRepository;
@@ -61,34 +59,6 @@ public class AuthService {
 			logger.error("Unexpected error during authentication for user: {}", username, e);
 			throw new RuntimeException("Đã xảy ra lỗi trong quá trình xác thực");
 		}
-	}
-
-//  có thể bỏ
-	public User register(RegisterRequest request) {
-		logger.info("Attempting to register new user: {}", request.getUsername());
-
-		// Check if username already exists
-		if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-			logger.warn("Registration failed: Username already exists: {}", request.getUsername());
-			throw new DuplicateResourceException("Tên đăng nhập đã tồn tại");
-		}
-
-		// Check if email already exists
-		if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-			logger.warn("Registration failed: Email already exists: {}", request.getEmail());
-			throw new DuplicateResourceException("Email đã tồn tại");
-		}
-
-		User user = new User();
-		user.setUsername(request.getUsername());
-		user.setPassword(passwordEncoder.encode(request.getPassword()));
-		user.setFullName(request.getFullName());
-		user.setEmail(request.getEmail());
-		user.setRoleId(request.getRoleId());
-
-		User savedUser = userRepository.save(user);
-		logger.info("User registered successfully: {}", savedUser.getUsername());
-		return savedUser;
 	}
 
 	public User getUserByUsername(String username) {

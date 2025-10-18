@@ -173,7 +173,7 @@ public class StudentPortalService {
 		int completedCredits = gradeItems.stream().filter(item -> item.getGrade() != null)
 				.mapToInt(StudentPortalInfo.GradeItem::getCredit).sum();
 
-		double gpa = 0; // TODO: implement GPA calculation
+		double gpa = 0;
 
 		int totalCourses = gradeItems.size();
 		int completedCourses = (int) gradeItems.stream().filter(item -> "Đã hoàn thành".equals(item.getStatus()))
@@ -263,7 +263,7 @@ public class StudentPortalService {
 
 	// Lấy thông tin thanh toán học phí của sinh viên theo semester - SỬ DỤNG
 	// PaymentDetailDTO TRỰC TIẾP
-	public StudentPortalInfo.PaymentInfo getPaymentInfo(Long studentId, String semester) {
+	public Share.PaymentSummaryDTO getPaymentInfo(Long studentId, String semester) {
 		logger.info("Getting payment info for student ID: {} in semester: {}", studentId, semester);
 
 		String effectiveSemester = normalizeSemester(semester);
@@ -287,23 +287,24 @@ public class StudentPortalService {
 				paymentStatus = payment.getStatus().toString();
 				paymentDate = payment.getPaymentDate();
 
-				logger.info("🔍 DEBUG: Payment exists - ID: {}, Status: {}, Amount: {}", payment.getId(), payment.getStatus(), payment.getAmount());
+				logger.info("🔍 DEBUG: Payment exists - ID: {}, Status: {}, Amount: {}", payment.getId(),
+						payment.getStatus(), payment.getAmount());
 
-				logger.info("📊 DEBUG: Lấy payment details từ payment_details table cho payment ID: {}", payment.getId());
+				logger.info("📊 DEBUG: Lấy payment details từ payment_details table cho payment ID: {}",
+						payment.getId());
 				paymentDetails = paymentDetailService.getPaymentDetailsByPaymentId(payment.getId());
 				logger.info("📋 DEBUG: Found {} payment details in database", paymentDetails.size());
 
 				// Tính tổng từ PaymentDetailDTO - KHÔNG CẦN CONVERT
-				totalAmount = paymentDetails.stream()
-						.map(detail -> {
-							BigDecimal fee = detail.getFee() != null ? detail.getFee() : BigDecimal.valueOf(1000000);
-							logger.info("💰 DEBUG: Course {} fee: {}", detail.getCourseName(), fee);
-							return fee;
-						})
-						.reduce(BigDecimal.ZERO, BigDecimal::add);
+				totalAmount = paymentDetails.stream().map(detail -> {
+					BigDecimal fee = detail.getFee() != null ? detail.getFee() : BigDecimal.valueOf(1000000);
+					logger.info("💰 DEBUG: Course {} fee: {}", detail.getCourseName(), fee);
+					return fee;
+				}).reduce(BigDecimal.ZERO, BigDecimal::add);
 
 				paidAmount = payment.getStatus() == Status.PAID ? totalAmount : BigDecimal.ZERO;
-				logger.info("✅ DEBUG: Calculated total amount: {} from {} payment details", totalAmount, paymentDetails.size());
+				logger.info("✅ DEBUG: Calculated total amount: {} from {} payment details", totalAmount,
+						paymentDetails.size());
 			} else {
 				// CHƯA CÓ PAYMENT - TẠO PaymentDetailDTO TẠM TỪ ENROLLMENTS
 				logger.info("⚠️ Chưa có payment, tạo PaymentDetailDTO tạm từ enrollments");
@@ -333,8 +334,8 @@ public class StudentPortalService {
 			// Tạo display name cho semester
 			String displayName = Share.getAllSemester.generateDisplayName(semester);
 
-			return new StudentPortalInfo.PaymentInfo(semesterEntity.getId(), semester, displayName, totalAmount,
-					paidAmount, paymentStatus, paymentDate, paymentDetails);
+			return new Share.PaymentSummaryDTO(semesterEntity.getId(), semester, displayName, totalAmount, paidAmount,
+					paymentStatus, paymentDate, paymentDetails, false);
 
 		} catch (Exception e) {
 			logger.error("Error getting payment info for student ID: {} in semester: {}", studentId, semester, e);
@@ -344,18 +345,18 @@ public class StudentPortalService {
 
 	// Lấy danh sách thông tin thanh toán của tất cả các semester mà sinh viên đã
 	// đăng ký
-	public List<StudentPortalInfo.PaymentInfo> getAllPaymentInfo(Long studentId) {
+	public List<Share.PaymentSummaryDTO> getAllPaymentInfo(Long studentId) {
 		logger.info("Getting all payment info for student ID: {}", studentId);
 
 		try {
 			// Lấy danh sách tất cả semester mà sinh viên có enrollment
 			List<String> semesters = enrollmentRepository.findDistinctSemestersByStudentId(studentId);
 
-			List<StudentPortalInfo.PaymentInfo> paymentInfos = new ArrayList<>();
+			List<Share.PaymentSummaryDTO> paymentInfos = new ArrayList<>();
 
 			for (String semester : semesters) {
 				try {
-					StudentPortalInfo.PaymentInfo paymentInfo = getPaymentInfo(studentId, semester);
+					Share.PaymentSummaryDTO paymentInfo = getPaymentInfo(studentId, semester);
 					paymentInfos.add(paymentInfo);
 				} catch (Exception e) {
 					logger.warn("Error getting payment info for semester: {}", semester, e);
@@ -398,7 +399,8 @@ public class StudentPortalService {
 
 			// TỰ ĐỘNG TẠO PAYMENT DETAILS cho các enrollments đã đăng ký
 			List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemester(studentId, semester);
-			logger.info("🔍 DEBUG: Found {} enrollments for student {} in semester {}", enrollments.size(), studentId, semester);
+			logger.info("🔍 DEBUG: Found {} enrollments for student {} in semester {}", enrollments.size(), studentId,
+					semester);
 
 			if (!enrollments.isEmpty()) {
 				List<Long> enrollmentIds = enrollments.stream().map(Enrollment::getId).collect(Collectors.toList());
@@ -406,7 +408,8 @@ public class StudentPortalService {
 
 				try {
 					paymentDetailService.createPaymentDetails(payment.getId(), enrollmentIds, semester);
-					logger.info("✅ DEBUG: Successfully created {} payment details for payment ID: {}", enrollmentIds.size(), payment.getId());
+					logger.info("✅ DEBUG: Successfully created {} payment details for payment ID: {}",
+							enrollmentIds.size(), payment.getId());
 				} catch (Exception e) {
 					logger.error("❌ DEBUG: Error creating payment details for payment ID: {}", payment.getId(), e);
 					throw e;
@@ -575,7 +578,8 @@ public class StudentPortalService {
 				// ✅ TẠO PAYMENT DETAILS SAU KHI TẠO PAYMENT
 				List<Long> enrollmentIds = enrollments.stream().map(Enrollment::getId).collect(Collectors.toList());
 				paymentDetailService.createPaymentDetails(newPayment.getId(), enrollmentIds, semester);
-				logger.info("✅ Created {} payment details for payment ID: {}", enrollmentIds.size(), newPayment.getId());
+				logger.info("✅ Created {} payment details for payment ID: {}", enrollmentIds.size(),
+						newPayment.getId());
 
 				// Cập nhật trạng thái enrollment từ PENDING_PAYMENT thành ENROLLED ngay khi tạo
 				// payment Và trừ slot trong course
@@ -674,7 +678,7 @@ public class StudentPortalService {
 	}
 
 	// Thay đổi mật khẩu
-	public Share.ChangePasswordResponse changePassword(Long userId, Share.ChangePasswordRequest request) {
+	public Share.ApiResponse changePassword(Long userId, Share.ChangePasswordRequest request) {
 		logger.info("Changing password for user ID: {}", userId);
 		Share.ChangePassword change = new ChangePassword(passwordEncoder, userRepository);
 		return change.changePassword(userId, request);

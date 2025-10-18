@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import com.example.app.dto.PaymentDTO;
 import com.example.app.dto.PaymentDetailDTO;
 import com.example.app.dto.PrincipalPortalInfo;
-import com.example.app.dto.PrincipalPortalInfo.PaymentDetailResponse;
 import com.example.app.dto.PrincipalPortalInfo.PaymentStatistics;
 import com.example.app.dto.PrincipalPortalInfo.PaymentWithDetails;
 import com.example.app.enumvalue.Status;
@@ -160,7 +159,7 @@ public class PaymentService {
 	}
 
 	// Lấy chi tiết payment - SỬ DỤNG PaymentDetailService
-	public PaymentDetailResponse getPaymentDetail(Long paymentId) {
+	public Share.PaymentSummaryDTO getPaymentDetail(Long paymentId) {
 		logger.info("Getting payment detail for ID: {}", paymentId);
 
 		try {
@@ -183,12 +182,20 @@ public class PaymentService {
 			double totalAmount = paymentDetails.stream()
 					.mapToDouble(detail -> detail.getFee() != null ? detail.getFee().doubleValue() : 0).sum();
 
-			return new PaymentDetailResponse(dto.getId(), dto.getStudentId(),
+			return new Share.PaymentSummaryDTO(dto.getId(), dto.getStudentId(),
 					user != null ? user.getFullName()
 							: (student != null ? "Sinh viên " + student.getStudentCode() : "N/A"),
-					student != null ? "CNTT" + (student.getId() % 10 + 1) : "N/A", dto.getSemesterId(),
-					semester != null ? semester.getSemester() : "N/A", dto.getPaymentDate().toString(),
-					dto.getStatus().toString(), paymentDetails, totalAmount);
+					student != null ? student.getStudentCode() : "N/A",
+					student != null ? "CNTT" + (student.getId() % 10 + 1) : "N/A",
+					dto.getSemesterId(),
+					semester != null ? semester.getSemester() : "N/A",
+					semester != null ? Share.getAllSemester.generateDisplayName(semester.getSemester()) : "N/A",
+					dto.getPaymentDate() != null ? dto.getPaymentDate().toString() : null,
+					dto.getPaymentDate(),
+					dto.getStatus().toString(),
+					BigDecimal.valueOf(totalAmount),
+					dto.getStatus() == Status.PAID ? BigDecimal.valueOf(totalAmount) : BigDecimal.ZERO,
+					paymentDetails);
 
 		} catch (Exception e) {
 			logger.error("Error getting payment detail for ID: {}", paymentId, e);

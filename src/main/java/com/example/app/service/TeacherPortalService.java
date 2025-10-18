@@ -232,19 +232,15 @@ public class TeacherPortalService {
 																				// model sau
 				"Giảng viên", // Default
 				"Công nghệ phần mềm" // Default
-		);
+				);
 	}
 
-	// Thay đổi mật khẩu cho giảng viên (không cần mật khẩu hiện tại)
-
 	// Thay đổi mật khẩu
-	public Share.ChangePasswordResponse changePassword(Long userId, Share.ChangePasswordRequest request) {
+	public Share.ApiResponse changePassword(Long userId, Share.ChangePasswordRequest request) {
 		logger.info("Changing password for user ID: {}", userId);
 		Share.ChangePassword change = new ChangePassword(passwordEncoder, userRepository);
 		return change.changePassword(userId, request);
 	}
-
-	// Xuất bảng điểm lớp học ra file CSV
 
 	// Xuất bảng điểm ra file CSV
 	public byte[] exportClassGradesToCsv(Long teachingId, Long lecturerId) {

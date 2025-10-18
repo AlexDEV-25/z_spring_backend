@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.dto.AuthResponse;
 import com.example.app.dto.LoginRequest;
-import com.example.app.dto.RegisterRequest;
-import com.example.app.model.User;
 import com.example.app.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -50,10 +48,4 @@ public class AuthController {
 //		}
 	}
 
-	@PostMapping("/register")
-	public ResponseEntity<User> register(@Valid @RequestBody RegisterRequest request) {
-		logger.info("Registration attempt for user: {}", request.getUsername());
-		User user = authService.register(request);
-		return ResponseEntity.status(201).body(user);
-	}
 }

@@ -22,6 +22,7 @@ import com.example.app.dto.PrincipalPortalInfo;
 import com.example.app.model.Payment;
 import com.example.app.service.PaymentDetailService;
 import com.example.app.service.PaymentService;
+import com.example.app.share.Share;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -69,10 +70,10 @@ public class PaymentController {
 
 	// Lấy chi tiết payment
 	@GetMapping("/{id}/detail")
-	public ResponseEntity<PrincipalPortalInfo.PaymentDetailResponse> getPaymentDetail(@PathVariable Long id) {
+	public ResponseEntity<Share.PaymentSummaryDTO> getPaymentDetail(@PathVariable Long id) {
 		try {
 			logger.info("Getting payment detail for ID: {}", id);
-			PrincipalPortalInfo.PaymentDetailResponse paymentDetail = paymentService.getPaymentDetail(id);
+			Share.PaymentSummaryDTO paymentDetail = paymentService.getPaymentDetail(id);
 			return ResponseEntity.ok(paymentDetail);
 		} catch (Exception e) {
 			logger.error("Error getting payment detail for ID: {}", id, e);
@@ -82,20 +83,17 @@ public class PaymentController {
 
 	// Cập nhật trạng thái thanh toán
 	@PutMapping("/{id}/status")
-	public ResponseEntity<PrincipalPortalInfo.PaymentStatusUpdateResponse> updatePaymentStatus(@PathVariable Long id,
+	public ResponseEntity<Share.ApiResponse> updatePaymentStatus(@PathVariable Long id,
 			@RequestBody PrincipalPortalInfo.PaymentStatusUpdateRequest request) {
 		try {
 			logger.info("Updating payment status for ID: {} to status: {}", id, request.getStatus());
 
-			PaymentDTO updatedPayment = paymentService.updatePaymentStatus(id, request.getStatus(),
-					request.getReason());
+			paymentService.updatePaymentStatus(id, request.getStatus(), request.getReason());
 
-			return ResponseEntity.ok(new PrincipalPortalInfo.PaymentStatusUpdateResponse(true,
-					"Cập nhật trạng thái thanh toán thành công", updatedPayment));
+			return ResponseEntity.ok(Share.ResponseUtils.success("Cập nhật trạng thái thanh toán thành công"));
 		} catch (Exception e) {
 			logger.error("Error updating payment status for ID: {}", id, e);
-			return ResponseEntity.ok(new PrincipalPortalInfo.PaymentStatusUpdateResponse(false,
-					"Lỗi khi cập nhật trạng thái: " + e.getMessage(), null));
+			return ResponseEntity.ok(Share.ResponseUtils.error("Lỗi khi cập nhật trạng thái: " + e.getMessage()));
 		}
 	}
 

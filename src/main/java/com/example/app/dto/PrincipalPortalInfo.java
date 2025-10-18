@@ -1,7 +1,6 @@
 package com.example.app.dto;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import com.example.app.enumvalue.Status;
 import com.example.app.model.Student;
@@ -35,45 +34,6 @@ public class PrincipalPortalInfo {
 
 		public void setReason(String reason) {
 			this.reason = reason;
-		}
-	}
-
-	public static class PaymentStatusUpdateResponse {
-		private boolean success;
-		private String message;
-		private PaymentDTO paymentDTO;
-
-		public PaymentStatusUpdateResponse() {
-		}
-
-		public PaymentStatusUpdateResponse(boolean success, String message, PaymentDTO paymentDTO) {
-			this.success = success;
-			this.message = message;
-			this.paymentDTO = paymentDTO;
-		}
-
-		public boolean isSuccess() {
-			return success;
-		}
-
-		public void setSuccess(boolean success) {
-			this.success = success;
-		}
-
-		public String getMessage() {
-			return message;
-		}
-
-		public void setMessage(String message) {
-			this.message = message;
-		}
-
-		public PaymentDTO getPayment() {
-			return paymentDTO;
-		}
-
-		public void setPayment(PaymentDTO paymentDTO) {
-			this.paymentDTO = paymentDTO;
 		}
 	}
 
@@ -158,121 +118,6 @@ public class PrincipalPortalInfo {
 			this.pendingAmount = pendingAmount;
 		}
 	}
-
-	// chi tiết payment - Sử DỤNG PaymentDetailDTO
-	public static class PaymentDetailResponse {
-		private Long id;
-		private Long studentId;
-		private String studentName;
-		private String studentClass;
-		private Long semesterId;
-		private String semesterName;
-		private String paymentDate;
-		private String status;
-		private List<com.example.app.dto.PaymentDetailDTO> paymentDetails; // THAY ĐỔI
-		private double totalAmount;
-
-		public PaymentDetailResponse() {
-		}
-
-		public PaymentDetailResponse(Long id, Long studentId, String studentName, String studentClass, Long semesterId,
-				String semesterName, String paymentDate, String status, List<com.example.app.dto.PaymentDetailDTO> paymentDetails,
-				double totalAmount) {
-			this.id = id;
-			this.studentId = studentId;
-			this.studentName = studentName;
-			this.studentClass = studentClass;
-			this.semesterId = semesterId;
-			this.semesterName = semesterName;
-			this.paymentDate = paymentDate;
-			this.status = status;
-			this.paymentDetails = paymentDetails;
-			this.totalAmount = totalAmount;
-		}
-
-		// Getters and setters
-		public Long getId() {
-			return id;
-		}
-
-		public void setId(Long id) {
-			this.id = id;
-		}
-
-		public Long getStudentId() {
-			return studentId;
-		}
-
-		public void setStudentId(Long studentId) {
-			this.studentId = studentId;
-		}
-
-		public String getStudentName() {
-			return studentName;
-		}
-
-		public void setStudentName(String studentName) {
-			this.studentName = studentName;
-		}
-
-		public String getStudentClass() {
-			return studentClass;
-		}
-
-		public void setStudentClass(String studentClass) {
-			this.studentClass = studentClass;
-		}
-
-		public Long getSemesterId() {
-			return semesterId;
-		}
-
-		public void setSemesterId(Long semesterId) {
-			this.semesterId = semesterId;
-		}
-
-		public String getSemesterName() {
-			return semesterName;
-		}
-
-		public void setSemesterName(String semesterName) {
-			this.semesterName = semesterName;
-		}
-
-		public String getPaymentDate() {
-			return paymentDate;
-		}
-
-		public void setPaymentDate(String paymentDate) {
-			this.paymentDate = paymentDate;
-		}
-
-		public String getStatus() {
-			return status;
-		}
-
-		public void setStatus(String status) {
-			this.status = status;
-		}
-
-		public List<com.example.app.dto.PaymentDetailDTO> getPaymentDetails() {
-			return paymentDetails;
-		}
-
-		public void setPaymentDetails(List<com.example.app.dto.PaymentDetailDTO> paymentDetails) {
-			this.paymentDetails = paymentDetails;
-		}
-
-		public double getTotalAmount() {
-			return totalAmount;
-		}
-
-		public void setTotalAmount(double totalAmount) {
-			this.totalAmount = totalAmount;
-		}
-	}
-
-	// CoursePaymentDetail đã bị XÓA - Sử dụng PaymentDetailDTO thay thế
 
 	// payment
 	public static class PaymentWithDetails {

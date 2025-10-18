@@ -156,18 +156,17 @@ public class StudentPortalController {
 	 * Lấy thông tin thanh toán học phí theo semester
 	 */
 	@GetMapping("/payment")
-	public ResponseEntity<StudentPortalInfo.PaymentInfo> getPaymentInfo(
+	public ResponseEntity<Share.PaymentSummaryDTO> getPaymentInfo(
 			@RequestParam(required = false) String semester) {
 		try {
 			Long studentId = getCurrentStudentId();
 			logger.info("Getting payment info for student ID: {} in semester: {}", studentId, semester);
-
 			// Nếu không có semester, lấy semester mới nhất
 			if (semester == null || semester.trim().isEmpty()) {
 				semester = "2024-1";
 			}
 
-			StudentPortalInfo.PaymentInfo paymentInfo = studentPortalService.getPaymentInfo(studentId, semester);
+			Share.PaymentSummaryDTO paymentInfo = studentPortalService.getPaymentInfo(studentId, semester);
 			return ResponseEntity.ok(paymentInfo);
 		} catch (Exception e) {
 			logger.error("Error getting payment info", e);
@@ -179,12 +178,12 @@ public class StudentPortalController {
 	 * Lấy thông tin thanh toán học phí của tất cả các kỳ học
 	 */
 	@GetMapping("/payments/all")
-	public ResponseEntity<List<StudentPortalInfo.PaymentInfo>> getAllPaymentInfo() {
+	public ResponseEntity<List<Share.PaymentSummaryDTO>> getAllPaymentInfo() {
 		try {
 			Long studentId = getCurrentStudentId();
 			logger.info("Getting all payment info for student ID: {}", studentId);
 
-			List<StudentPortalInfo.PaymentInfo> paymentInfos = studentPortalService.getAllPaymentInfo(studentId);
+			List<Share.PaymentSummaryDTO> paymentInfos = studentPortalService.getAllPaymentInfo(studentId);
 			return ResponseEntity.ok(paymentInfos);
 		} catch (Exception e) {
 			logger.error("Error getting all payment info", e);
@@ -217,13 +216,13 @@ public class StudentPortalController {
 				// Cập nhật trạng thái enrollment và trừ slot
 				studentPortalService.updateEnrollmentStatusToEnrolled(studentId, semester);
 
-				return ResponseEntity.ok("Đã xác nhận thanh toán thành công");
+				return ResponseEntity.ok(Share.ResponseUtils.success("Đã xác nhận thanh toán thành công").getMessage());
 			} else {
-				return ResponseEntity.badRequest().body("Không tìm thấy yêu cầu thanh toán");
+				return ResponseEntity.badRequest().body(Share.ResponseUtils.error("Không tìm thấy yêu cầu thanh toán").getMessage());
 			}
 		} catch (Exception e) {
 			logger.error("Error confirming payment", e);
-			return ResponseEntity.internalServerError().body("Lỗi khi xác nhận thanh toán: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(Share.ResponseUtils.error("Lỗi khi xác nhận thanh toán: " + e.getMessage()).getMessage());
 		}
 	}
 
@@ -245,7 +244,7 @@ public class StudentPortalController {
 			return ResponseEntity.ok(result);
 		} catch (Exception e) {
 			logger.error("Error creating payment request", e);
-			return ResponseEntity.internalServerError().body("Lỗi khi tạo yêu cầu thanh toán: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(Share.ResponseUtils.error("Lỗi khi tạo yêu cầu thanh toán: " + e.getMessage()).getMessage());
 		}
 	}
 
@@ -267,17 +266,17 @@ public class StudentPortalController {
 	 * Thay đổi mật khẩu cho giảng viên
 	 */
 	@PostMapping("/change-password")
-	public ResponseEntity<Share.ChangePasswordResponse> changePassword(
+	public ResponseEntity<Share.ApiResponse> changePassword(
 			@Valid @RequestBody Share.ChangePasswordRequest request) {
 		try {
 			Long userId = getCurrentUserId();
 			logger.info("Changing password for lecturer ID: {}", userId);
 
-			Share.ChangePasswordResponse response = studentPortalService.changePassword(userId, request);
+			Share.ApiResponse response = studentPortalService.changePassword(userId, request);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			logger.error("Error changing password", e);
-			return ResponseEntity.ok(new Share.ChangePasswordResponse(false, "Lỗi hệ thống: " + e.getMessage()));
+			return ResponseEntity.ok(Share.ResponseUtils.error("Lỗi hệ thống: " + e.getMessage()));
 		}
 	}
 
@@ -340,7 +339,7 @@ public class StudentPortalController {
 			return ResponseEntity.ok(schedules);
 		} catch (Exception e) {
 			logger.error("Error getting schedule list: ", e);
-			return ResponseEntity.badRequest().body("Lỗi khi lấy thời khóa biểu: " + e.getMessage());
+			return ResponseEntity.badRequest().body(Share.ResponseUtils.error("Lỗi khi lấy thời khóa biểu: " + e.getMessage()).getMessage());
 		}
 	}
 
@@ -355,10 +354,10 @@ public class StudentPortalController {
 			logger.info("Generating schedule for student ID: {} in semester: {}", studentId, semester);
 			
 			studentPortalService.generateScheduleForStudent(studentId, semester);
-			return ResponseEntity.ok("Đã tạo thời khóa biểu thành công cho học kỳ " + semester);
+			return ResponseEntity.ok(Share.ResponseUtils.success("Đã tạo thời khóa biểu thành công cho học kỳ " + semester).getMessage());
 		} catch (Exception e) {
 			logger.error("Error generating schedule: ", e);
-			return ResponseEntity.badRequest().body("Lỗi khi tạo thời khóa biểu: " + e.getMessage());
+			return ResponseEntity.badRequest().body(Share.ResponseUtils.error("Lỗi khi tạo thời khóa biểu: " + e.getMessage()).getMessage());
 		}
 	}
 
