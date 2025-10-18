@@ -42,8 +42,8 @@ public class PaymentDetailService {
 	 */
 	@Transactional
 	public void createPaymentDetails(Long paymentId, List<Long> enrollmentIds, String semester) {
-		logger.info("🔄 DEBUG: Creating payment details for payment ID: {} with {} enrollments in semester: {}", paymentId,
-				enrollmentIds.size(), semester);
+		logger.info("🔄 DEBUG: Creating payment details for payment ID: {} with {} enrollments in semester: {}",
+				paymentId, enrollmentIds.size(), semester);
 
 		// Xóa payment details cũ (nếu có)
 		paymentDetailRepository.deleteByPaymentIdAndSemester(paymentId, semester);
@@ -62,7 +62,8 @@ public class PaymentDetailService {
 			}
 		}
 
-		logger.info("✅ DEBUG: Successfully created {} payment details for payment ID: {}", enrollmentIds.size(), paymentId);
+		logger.info("✅ DEBUG: Successfully created {} payment details for payment ID: {}", enrollmentIds.size(),
+				paymentId);
 	}
 
 	/**
@@ -78,7 +79,8 @@ public class PaymentDetailService {
 		List<PaymentDetailDTO> result = new ArrayList<>();
 
 		for (PaymentDetail detail : details) {
-			logger.info("🔎 DEBUG: Processing payment detail ID: {}, enrollment: {}", detail.getId(), detail.getEnrollmentId());
+			logger.info("🔎 DEBUG: Processing payment detail ID: {}, enrollment: {}", detail.getId(),
+					detail.getEnrollmentId());
 
 			// Lấy thông tin từ enrollment
 			Enrollment enrollment = enrollmentRepository.findById(detail.getEnrollmentId()).orElse(null);

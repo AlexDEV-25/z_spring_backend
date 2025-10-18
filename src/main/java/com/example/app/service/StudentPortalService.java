@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.app.dto.StudentPortalInfo;
+import com.example.app.dto.StudentScheduleDetailDTO;
 import com.example.app.enumvalue.Status;
 import com.example.app.model.ClassEntity;
 import com.example.app.model.Course;
@@ -727,11 +728,11 @@ public class StudentPortalService {
 	 * Lấy thời khóa biểu từ bảng student_schedule với thông tin đầy đủ Join với
 	 * teaching, course, lecturer để lấy thông tin chi tiết
 	 */
-	public List<com.example.app.dto.StudentScheduleDetailDTO> getStudentScheduleList(Long studentId, String semester) {
+	public List<StudentScheduleDetailDTO> getStudentScheduleList(Long studentId, String semester) {
 		logger.info("Getting schedule list for student ID: {} in semester: {}", studentId, semester);
 
 		List<StudentSchedule> schedules = studentScheduleRepository.findByStudentIdAndSemester(studentId, semester);
-		List<com.example.app.dto.StudentScheduleDetailDTO> result = new ArrayList<>();
+		List<StudentScheduleDetailDTO> result = new ArrayList<>();
 
 		for (StudentSchedule schedule : schedules) {
 			// Lấy thông tin từ teaching
@@ -761,11 +762,10 @@ public class StudentPortalService {
 			}
 
 			// Tạo DTO với thông tin đầy đủ
-			com.example.app.dto.StudentScheduleDetailDTO dto = new com.example.app.dto.StudentScheduleDetailDTO(
-					schedule.getId(), schedule.getStudentId(), schedule.getEnrollmentId(), schedule.getTeachingId(),
-					schedule.getSemester(), course.getId(), course.getCourseCode(), course.getName(),
-					course.getCredit(), teaching.getDayOfWeek(), teaching.getPeriod(), teaching.getClassRoom(),
-					teaching.getLecturerId(), lecturerName);
+			StudentScheduleDetailDTO dto = new StudentScheduleDetailDTO(schedule.getId(), schedule.getStudentId(),
+					schedule.getEnrollmentId(), schedule.getTeachingId(), schedule.getSemester(), course.getId(),
+					course.getCourseCode(), course.getName(), course.getCredit(), teaching.getDayOfWeek(),
+					teaching.getPeriod(), teaching.getClassRoom(), teaching.getLecturerId(), lecturerName);
 
 			result.add(dto);
 		}
