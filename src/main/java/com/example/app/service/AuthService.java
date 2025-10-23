@@ -9,7 +9,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.app.dto.AuthResponse;
@@ -29,15 +28,14 @@ public class AuthService {
 	private final JwtTokenProvider jwtTokenProvider;// class custom để tạo và kiểm tra JWT token.
 	private final UserDetailsService userDetailsService;// load thông tin user từ DB (Spring Security chuẩn), là class
 														// CustomUserDetailsService.
-	private final PasswordEncoder passwordEncoder;// mã hóa mật khẩu (dùng BCryptPasswordEncoder).
 
 	public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository,
-			JwtTokenProvider jwtTokenProvider, UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+			JwtTokenProvider jwtTokenProvider, UserDetailsService userDetailsService) {
 		this.authenticationManager = authenticationManager;
 		this.userRepository = userRepository;
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.userDetailsService = userDetailsService;
-		this.passwordEncoder = passwordEncoder;
+
 	}
 
 	public AuthResponse authenticate(String username, String password) {

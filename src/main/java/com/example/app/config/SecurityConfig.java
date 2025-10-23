@@ -41,7 +41,7 @@ public class SecurityConfig {
 				.and().authorizeHttpRequests(authorize -> authorize
 						// Public endpoints
 						.requestMatchers("/api/auth/**").permitAll().requestMatchers("/actuator/health").permitAll()
-						.requestMatchers("/actuator/info").permitAll().requestMatchers("/api/gemini/**").permitAll()
+						.requestMatchers("/actuator/info").permitAll()
 
 						// Student endpoints - accessible by all authenticated users
 						.requestMatchers("/api/student/**").hasAuthority("ROLE_SINH_VIÊN")
